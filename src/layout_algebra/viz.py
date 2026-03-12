@@ -1111,28 +1111,26 @@ def draw_swizzle(base_layout, swizzle, filename=None,
     rows, cols = linear_idx.shape
 
     if swizzle.base > 0 and cols > (1 << swizzle.base):
-        # Block-level view: collapse each run of 2^base elements into one cell.
-        # This converts e.g. 8×128 → 8×8 blocks, making the swizzle pattern
-        # clearly visible at the same scale as the 8×8 base=0 cases.
+        # Full element view with block-based coloring: show every element but
+        # color by which block of 2^base elements it belongs to.  This matches
+        # the presentation style used by NVIDIA's CuTe swizzle visualizations
+        # where all values are visible and color bands reveal the permutation.
         block_size = 1 << swizzle.base
         blocks_per_row = cols // block_size
 
-        # Sample the first element of each block as the representative value
-        linear_blocks = linear_idx[:, ::block_size]
-        swizzle_blocks = swizzle_idx[:, ::block_size]
-
         if figsize is None:
-            figsize = (blocks_per_row * 1.0 + 3, rows * 0.5 + 1.5)
+            figsize = (cols * 0.6 + 3, rows * 0.5 + 1.5)
 
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
 
-        # Color by block position within row: (val >> base) % blocks_per_row
-        # This gives each block a unique color per row, same as idx%8 for base=0
-        _draw_grid_by_bits(ax1, linear_blocks, swizzle.base,
-                           title=f"Linear: {base_layout}\n(blocks of {block_size})",
+        # Color by block identity: (val >> base) % blocks_per_row
+        # In the linear layout these form contiguous color bands;
+        # in the swizzled layout the bands get permuted across rows.
+        _draw_grid_by_bits(ax1, linear_idx, swizzle.base,
+                           title=f"Linear: {base_layout}",
                            colorize=colorize, num_shades=blocks_per_row)
-        _draw_grid_by_bits(ax2, swizzle_blocks, swizzle.base,
-                           title=f"Swizzled: {swizzle}\n(blocks of {block_size})",
+        _draw_grid_by_bits(ax2, swizzle_idx, swizzle.base,
+                           title=f"Swizzled: {swizzle}",
                            colorize=colorize, num_shades=blocks_per_row)
     elif swizzle.base == 0:
         # Element-level view: color by value % num_shades
@@ -1465,10 +1463,10 @@ def show_swizzle(base_layout, swizzle,
 
     # Color by the bits that the swizzle affects
     bit_shift = swizzle.base
-    _draw_grid_with_shift(ax1, linear_idx, bit_shift, title=f"Linear: {base_layout}",
-                          colorize=colorize, num_shades=num_shades)
-    _draw_grid_with_shift(ax2, swizzle_idx, bit_shift, title=f"Swizzled: {swizzle}",
-                          colorize=colorize, num_shades=num_shades)
+    _draw_grid_by_bits(ax1, linear_idx, bit_shift, title=f"Linear: {base_layout}",
+                       colorize=colorize, num_shades=num_shades)
+    _draw_grid_by_bits(ax2, swizzle_idx, bit_shift, title=f"Swizzled: {swizzle}",
+                       colorize=colorize, num_shades=num_shades)
 
     plt.tight_layout()
     return fig
