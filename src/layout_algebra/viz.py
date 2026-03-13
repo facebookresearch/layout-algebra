@@ -175,6 +175,59 @@ def _get_indices_2d(layout) -> np.ndarray:
     return indices
 
 
+def _color_result_to_index(result) -> int:
+    """Normalize a color-layout evaluation result to a scalar color index."""
+    if isinstance(result, tuple):
+        return 0 if len(result) == 0 else int(result[0])
+    return int(result)
+
+
+def _get_color_indices_2d(layout, color_layout) -> Optional[np.ndarray]:
+    """Extract per-cell color indices aligned with _get_indices_2d() display semantics.
+
+    For rank-2 color layouts, displayed cell (row, col) is colored by evaluating
+    color_layout at the corresponding logical coordinate of `layout`.
+
+    Scalar color layouts are treated as uniform color. Rank-1 color layouts are
+    evaluated over the flattened displayed grid.
+    """
+    if color_layout is None:
+        return None
+
+    indices = _get_indices_2d(layout)
+    rows, cols = indices.shape
+    color_indices = np.zeros((rows, cols), dtype=np.int32)
+
+    layout_rank = rank(layout)
+    color_rank = rank(color_layout)
+
+    if color_rank == 0:
+        color_idx = _color_result_to_index(color_layout(0))
+        color_indices.fill(color_idx)
+        return color_indices
+
+    if color_rank == 1:
+        for i in range(rows):
+            for j in range(cols):
+                flat_idx = i * cols + j
+                color_indices[i, j] = _color_result_to_index(color_layout(flat_idx))
+        return color_indices
+
+    if layout_rank == 2 and color_rank == 2:
+        row_shape = mode(layout.shape, 0)
+        col_shape = mode(layout.shape, 1)
+        for i in range(rows):
+            row_coord = idx2crd(i, row_shape)
+            for j in range(cols):
+                col_coord = idx2crd(j, col_shape)
+                color_indices[i, j] = _color_result_to_index(color_layout(row_coord, col_coord))
+        return color_indices
+
+    raise ValueError(
+        f"Unsupported color_layout rank {color_rank} for layout rank {layout_rank}"
+    )
+
+
 # =============================================================================
 # Core drawing functions
 # =============================================================================
@@ -186,6 +239,7 @@ def _draw_grid(ax, indices: np.ndarray,
                title: Optional[str] = None,
                colorize: bool = False,
                color_layout: Optional[Layout] = None,
+               color_indices: Optional[np.ndarray] = None,
                num_shades: int = 8):
     """Draw a grid of cells with indices on a matplotlib axis.
 
@@ -197,12 +251,9 @@ def _draw_grid(ax, indices: np.ndarray,
         show_labels: Whether to show row/column labels
         title: Optional title for the plot
         colorize: If True, use rainbow colors; if False, use grayscale
-        color_layout: Layout that maps (row, col) to color index. Examples:
-            - Layout((8,8), (1, 0)): color by row (darker down rows)
-            - Layout((8,8), (0, 1)): color by column (darker across columns)
-            - Layout((8,8), (8, 1)): color by position (row-major order)
-            - Layout(1, 0): uniform color (no variation)
-            - None: color by cell value (default, good for swizzle viz)
+        color_layout: Deprecated at this level; callers should usually pass
+            precomputed `color_indices` aligned with the displayed grid.
+        color_indices: 2D array of per-cell color indices aligned with `indices`.
         num_shades: Number of colors/shades in palette (default 8)
     """
     rows, cols = indices.shape
@@ -233,18 +284,16 @@ def _draw_grid(ax, indices: np.ndarray,
                 edgecolor = HIGHLIGHT_EDGE
                 linewidth = 2
             else:
-                # Determine color index based on color_layout
-                if color_layout is None:
+                # Determine color index
+                if color_indices is not None:
+                    color_idx = int(color_indices[i, j]) % len(colors)
+                elif color_layout is None:
                     # Default: color by cell value
                     color_idx = idx % len(colors)
                 else:
-                    # Use the color layout to map position to color
+                    # Backward-compatible fallback for direct display-coordinate use
                     result = color_layout(i, j)
-                    # Handle scalar layouts (rank 0) that return empty tuple
-                    if isinstance(result, tuple):
-                        color_idx = 0 if len(result) == 0 else result[0] % len(colors)
-                    else:
-                        color_idx = result % len(colors)
+                    color_idx = _color_result_to_index(result) % len(colors)
 
                 facecolor = colors[color_idx]
                 edgecolor = 'black'
@@ -407,8 +456,10 @@ def draw_composite(panels: list, filename: str,
                           colorize=panel_colorize, num_threads=num_shades)
         else:
             indices = _get_indices_2d(layout)
+            color_indices = _get_color_indices_2d(layout, color_layout)
             _draw_grid(ax, indices, title=title,
                        colorize=panel_colorize, color_layout=color_layout,
+                       color_indices=color_indices,
                        num_shades=num_shades)
 
     # Hide unused axes
@@ -624,6 +675,8 @@ def draw_layout(layout, filename=None,
         indices = _get_indices_2d(layout)
         rows, cols = indices.shape
 
+    color_indices = _get_color_indices_2d(layout, color_layout)
+
     if figsize is None:
         # Larger cells for nested coordinate display
         cell_scale = 0.8 if (is_hierarchical and not flatten_hierarchical) else 0.5
@@ -637,7 +690,8 @@ def draw_layout(layout, filename=None,
                                 num_shades=num_shades)
     else:
         _draw_grid(ax, indices, title=title or str(layout),
-                   colorize=colorize, color_layout=color_layout, num_shades=num_shades)
+                   colorize=colorize, color_layout=color_layout,
+                   color_indices=color_indices, num_shades=num_shades)
 
     _save_figure(fig, filename, dpi)
 
@@ -1405,8 +1459,10 @@ def draw_slice(layout, slice_spec, filename=None,
         title = f"{layout}[{slice_spec}]"
 
     fig, ax = plt.subplots(figsize=figsize)
+    color_indices = _get_color_indices_2d(layout, color_layout)
     _draw_grid(ax, indices, highlight=highlight, title=title,
-               colorize=colorize, color_layout=color_layout, num_shades=num_shades)
+               colorize=colorize, color_layout=color_layout,
+               color_indices=color_indices, num_shades=num_shades)
     _save_figure(fig, filename, dpi)
 
 
@@ -1435,8 +1491,10 @@ def show_layout(layout, title: Optional[str] = None,
         figsize = (cols * 0.5 + 1, rows * 0.5 + 1)
 
     fig, ax = plt.subplots(figsize=figsize)
+    color_indices = _get_color_indices_2d(layout, color_layout)
     _draw_grid(ax, indices, title=title or str(layout),
-               colorize=colorize, color_layout=color_layout, num_shades=num_shades)
+               colorize=colorize, color_layout=color_layout,
+               color_indices=color_indices, num_shades=num_shades)
     return fig
 
 

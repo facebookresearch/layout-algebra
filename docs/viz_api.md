@@ -56,7 +56,11 @@ By default cells are shaded in grayscale by their offset value.  Use
 `colorize=True` for rainbow colors.
 
 The `color_layout` parameter gives fine control over which cells share
-colors.  It must have the same shape as the layout being drawn:
+colors. It is evaluated in the same logical coordinate space as the layout
+being drawn, so displayed cell `(row, col)` is colored by the value of
+`color_layout` at that logical coordinate. For ordinary 2D layouts, this
+means `color_layout` should usually have the same shape as the layout being
+drawn:
 
 ```python
 layout = Layout((8, 8), (8, 1))
@@ -203,7 +207,7 @@ draw_slice(layout, ((1, None), ((None, 0), None)), title="((1,:),((:,0),:))")
 | `dpi` | `int` | `150` | Resolution |
 | `figsize` | `(w, h)` | auto | Figure size |
 | `colorize` | `bool` | `False` | Rainbow colors |
-| `color_layout` | `Layout` | `None` | Custom coloring |
+| `color_layout` | `Layout` | `None` | Custom coloring in the layout's logical coordinate space |
 | `num_shades` | `int` | `8` | Grayscale shades |
 
 ## draw_composite

@@ -41,6 +41,7 @@ try:
     import matplotlib.pyplot as plt
     from layout_algebra.viz import (
         _get_indices_2d,
+        _get_color_indices_2d,
         draw_composite,
         draw_layout,
         draw_mma_layout,
@@ -194,4 +195,43 @@ def test_get_indices_2d_column_major_matches_logical_coordinates():
         [1, 5, 9],
         [2, 6, 10],
         [3, 7, 11],
+    ]
+
+
+@requires_viz
+def test_get_color_indices_2d_by_row_matches_logical_coordinates():
+    layout = Layout((4, 3), (3, 1))
+    color_layout = Layout((4, 3), (1, 0))
+    color_indices = _get_color_indices_2d(layout, color_layout)
+    assert color_indices.tolist() == [
+        [0, 0, 0],
+        [1, 1, 1],
+        [2, 2, 2],
+        [3, 3, 3],
+    ]
+
+
+@requires_viz
+def test_get_color_indices_2d_by_column_matches_logical_coordinates():
+    layout = Layout((4, 3), (3, 1))
+    color_layout = Layout((4, 3), (0, 1))
+    color_indices = _get_color_indices_2d(layout, color_layout)
+    assert color_indices.tolist() == [
+        [0, 1, 2],
+        [0, 1, 2],
+        [0, 1, 2],
+        [0, 1, 2],
+    ]
+
+
+@requires_viz
+def test_get_color_indices_2d_uniform_layout_is_uniform():
+    layout = Layout((4, 3), (3, 1))
+    color_layout = Layout(1, 0)
+    color_indices = _get_color_indices_2d(layout, color_layout)
+    assert color_indices.tolist() == [
+        [0, 0, 0],
+        [0, 0, 0],
+        [0, 0, 0],
+        [0, 0, 0],
     ]
