@@ -1422,6 +1422,21 @@ def test_nullspace_no_zero_strides():
     assert size(ker) == 1
 
 
+def test_nullspace_scalar_nonzero_stride():
+    # Scalar layout with non-zero stride: trivial nullspace
+    ker = nullspace(Layout(4, 1))
+    assert size(ker) == 1
+    assert ker == Layout(1, 0)
+
+
+def test_nullspace_scalar_zero_stride():
+    # Scalar layout with stride 0: entire domain is nullspace
+    ker = nullspace(Layout(4, 0))
+    assert size(ker) == 4
+    for i in range(size(ker)):
+        assert Layout(4, 0)(ker(i)) == 0
+
+
 ## max_common_vector and max_common_layout
 
 def test_max_common_vector_identical():

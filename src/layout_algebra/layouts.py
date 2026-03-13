@@ -1371,10 +1371,15 @@ def nullspace(layout: Layout) -> Layout:
     # of a compact column-major layout with the same shape.
     col_major_strides = prefix_product(flat.shape)
 
+    # Normalize to tuples so zip works on scalar (rank-0) layouts
+    flat_shapes = as_tuple(flat.shape)
+    flat_strides = as_tuple(flat.stride)
+    col_strides = as_tuple(col_major_strides)
+
     # Select shapes and strides at stride-0 positions
     zero_shapes = []
     zero_strides = []
-    for s, d, r in zip(flat.shape, flat.stride, col_major_strides):
+    for s, d, r in zip(flat_shapes, flat_strides, col_strides):
         if d == 0 and s != 1:
             zero_shapes.append(s)
             zero_strides.append(r)
