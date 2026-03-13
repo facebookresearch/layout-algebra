@@ -513,13 +513,13 @@ SM90_16x8x16_C64C64C64C64_TN = MMAAtom(
 # tile with stride-0 in the thread dimension (line 436-443 in 0t_mma_atom.md).
 # =============================================================================
 
-def _gmma_c_layout(n: int) -> Layout:
+def gmma_c_layout(n: int) -> Layout:
     """CLayout_64xN: accumulator layout for SM90 GMMA with N columns.
     Source: mma_traits_sm90_gmma.hpp line 432."""
     return Layout(((4, 8, 4), (2, 2, n // 8)),
                   ((128, 1, 16), (64, 8, 512)))
 
-def _gmma_ab_layout(m: int, k: int) -> Layout:
+def gmma_ab_layout(m: int, k: int) -> Layout:
     """ABLayout<M,K>: shared memory descriptor layout — all threads see entire tile.
     Source: mma_traits_sm90_gmma.hpp; 0t_mma_atom.md lines 436-443."""
     return Layout((128, (m, k)), (0, (1, m)))
@@ -529,49 +529,49 @@ SM90_64x8x16_F16F16F16_SS = MMAAtom(
     name="SM90_64x8x16_F16F16F16_SS",
     ptx="wgmma.mma_async.sync.aligned.m64n8k16.f16.f16.f16",
     shape_mnk=(64, 8, 16), thr_id=None,
-    a_layout=_gmma_ab_layout(64, 16),
-    b_layout=_gmma_ab_layout(8, 16),
-    c_layout=_gmma_c_layout(8))
+    a_layout=gmma_ab_layout(64, 16),
+    b_layout=gmma_ab_layout(8, 16),
+    c_layout=gmma_c_layout(8))
 
 SM90_64x16x16_F16F16F16_SS = MMAAtom(
     name="SM90_64x16x16_F16F16F16_SS",
     ptx="wgmma.mma_async.sync.aligned.m64n16k16.f16.f16.f16",
     shape_mnk=(64, 16, 16), thr_id=None,
-    a_layout=_gmma_ab_layout(64, 16),
-    b_layout=_gmma_ab_layout(16, 16),
-    c_layout=_gmma_c_layout(16))
+    a_layout=gmma_ab_layout(64, 16),
+    b_layout=gmma_ab_layout(16, 16),
+    c_layout=gmma_c_layout(16))
 
 SM90_64x32x16_F16F16F16_SS = MMAAtom(
     name="SM90_64x32x16_F16F16F16_SS",
     ptx="wgmma.mma_async.sync.aligned.m64n32k16.f16.f16.f16",
     shape_mnk=(64, 32, 16), thr_id=None,
-    a_layout=_gmma_ab_layout(64, 16),
-    b_layout=_gmma_ab_layout(32, 16),
-    c_layout=_gmma_c_layout(32))
+    a_layout=gmma_ab_layout(64, 16),
+    b_layout=gmma_ab_layout(32, 16),
+    c_layout=gmma_c_layout(32))
 
 SM90_64x64x16_F16F16F16_SS = MMAAtom(
     name="SM90_64x64x16_F16F16F16_SS",
     ptx="wgmma.mma_async.sync.aligned.m64n64k16.f16.f16.f16",
     shape_mnk=(64, 64, 16), thr_id=None,
-    a_layout=_gmma_ab_layout(64, 16),
-    b_layout=_gmma_ab_layout(64, 16),
-    c_layout=_gmma_c_layout(64))
+    a_layout=gmma_ab_layout(64, 16),
+    b_layout=gmma_ab_layout(64, 16),
+    c_layout=gmma_c_layout(64))
 
 SM90_64x128x16_F16F16F16_SS = MMAAtom(
     name="SM90_64x128x16_F16F16F16_SS",
     ptx="wgmma.mma_async.sync.aligned.m64n128k16.f16.f16.f16",
     shape_mnk=(64, 128, 16), thr_id=None,
-    a_layout=_gmma_ab_layout(64, 16),
-    b_layout=_gmma_ab_layout(128, 16),
-    c_layout=_gmma_c_layout(128))
+    a_layout=gmma_ab_layout(64, 16),
+    b_layout=gmma_ab_layout(128, 16),
+    c_layout=gmma_c_layout(128))
 
 SM90_64x256x16_F16F16F16_SS = MMAAtom(
     name="SM90_64x256x16_F16F16F16_SS",
     ptx="wgmma.mma_async.sync.aligned.m64n256k16.f16.f16.f16",
     shape_mnk=(64, 256, 16), thr_id=None,
-    a_layout=_gmma_ab_layout(64, 16),
-    b_layout=_gmma_ab_layout(256, 16),
-    c_layout=_gmma_c_layout(256))
+    a_layout=gmma_ab_layout(64, 16),
+    b_layout=gmma_ab_layout(256, 16),
+    c_layout=gmma_c_layout(256))
 
 
 # =============================================================================
@@ -605,9 +605,9 @@ def make_gmma_atom_ss(n: int, k: int = 16, d_type: str = "F16",
         name=name,
         ptx=f"wgmma.mma_async.sync.aligned.m64n{n}k{k}",
         shape_mnk=(64, n, k), thr_id=None,
-        a_layout=_gmma_ab_layout(64, k),
-        b_layout=_gmma_ab_layout(n, k),
-        c_layout=_gmma_c_layout(n))
+        a_layout=gmma_ab_layout(64, k),
+        b_layout=gmma_ab_layout(n, k),
+        c_layout=gmma_c_layout(n))
 
 
 # Representative ext atoms (N values not in the base set)
@@ -679,9 +679,9 @@ def make_gmma_sparse_atom_ss(n: int, k: int = 32, d_type: str = "F16",
         name=name,
         ptx=f"wgmma.mma_async.sp.sync.aligned.m64n{n}k{k}",
         shape_mnk=(64, n, k), thr_id=None,
-        a_layout=_gmma_ab_layout(64, k),
-        b_layout=_gmma_ab_layout(n, k),
-        c_layout=_gmma_c_layout(n))
+        a_layout=gmma_ab_layout(64, k),
+        b_layout=gmma_ab_layout(n, k),
+        c_layout=gmma_c_layout(n))
 
 
 # F16 sparse (K=32, double the dense K=16)
@@ -719,7 +719,7 @@ SM90_64x256x64_S32S8S8_SS_SPARSE = make_gmma_sparse_atom_ss(256, k=64, d_type="S
 # M ∈ {64, 128},  N ∈ {8, 16, 24, ..., 256} (multiples of 8)
 # =============================================================================
 
-def _umma_layout(rows: int, cols: int) -> Layout:
+def umma_layout(rows: int, cols: int) -> Layout:
     """SM100 UMMA layout: (1, (rows, cols)) : (0, (1, rows)) — col-major."""
     return Layout((1, (rows, cols)), (0, (1, rows)))
 
@@ -729,49 +729,49 @@ SM100_64x64x16_F16F16F16_SS = MMAAtom(
     name="SM100_64x64x16_F16F16F16_SS",
     ptx="tcgen05.mma ... m64n64k16.f16.f16.f16",
     shape_mnk=(64, 64, 16), thr_id=Layout(1),
-    a_layout=_umma_layout(64, 16),
-    b_layout=_umma_layout(64, 16),
-    c_layout=_umma_layout(64, 64))
+    a_layout=umma_layout(64, 16),
+    b_layout=umma_layout(64, 16),
+    c_layout=umma_layout(64, 64))
 
 SM100_64x128x16_F16F16F16_SS = MMAAtom(
     name="SM100_64x128x16_F16F16F16_SS",
     ptx="tcgen05.mma ... m64n128k16.f16.f16.f16",
     shape_mnk=(64, 128, 16), thr_id=Layout(1),
-    a_layout=_umma_layout(64, 16),
-    b_layout=_umma_layout(128, 16),
-    c_layout=_umma_layout(64, 128))
+    a_layout=umma_layout(64, 16),
+    b_layout=umma_layout(128, 16),
+    c_layout=umma_layout(64, 128))
 
 SM100_64x256x16_F16F16F16_SS = MMAAtom(
     name="SM100_64x256x16_F16F16F16_SS",
     ptx="tcgen05.mma ... m64n256k16.f16.f16.f16",
     shape_mnk=(64, 256, 16), thr_id=Layout(1),
-    a_layout=_umma_layout(64, 16),
-    b_layout=_umma_layout(256, 16),
-    c_layout=_umma_layout(64, 256))
+    a_layout=umma_layout(64, 16),
+    b_layout=umma_layout(256, 16),
+    c_layout=umma_layout(64, 256))
 
 SM100_128x64x16_F16F16F16_SS = MMAAtom(
     name="SM100_128x64x16_F16F16F16_SS",
     ptx="tcgen05.mma ... m128n64k16.f16.f16.f16",
     shape_mnk=(128, 64, 16), thr_id=Layout(1),
-    a_layout=_umma_layout(128, 16),
-    b_layout=_umma_layout(64, 16),
-    c_layout=_umma_layout(128, 64))
+    a_layout=umma_layout(128, 16),
+    b_layout=umma_layout(64, 16),
+    c_layout=umma_layout(128, 64))
 
 SM100_128x128x16_F16F16F16_SS = MMAAtom(
     name="SM100_128x128x16_F16F16F16_SS",
     ptx="tcgen05.mma ... m128n128k16.f16.f16.f16",
     shape_mnk=(128, 128, 16), thr_id=Layout(1),
-    a_layout=_umma_layout(128, 16),
-    b_layout=_umma_layout(128, 16),
-    c_layout=_umma_layout(128, 128))
+    a_layout=umma_layout(128, 16),
+    b_layout=umma_layout(128, 16),
+    c_layout=umma_layout(128, 128))
 
 SM100_128x256x16_F16F16F16_SS = MMAAtom(
     name="SM100_128x256x16_F16F16F16_SS",
     ptx="tcgen05.mma ... m128n256k16.f16.f16.f16",
     shape_mnk=(128, 256, 16), thr_id=Layout(1),
-    a_layout=_umma_layout(128, 16),
-    b_layout=_umma_layout(256, 16),
-    c_layout=_umma_layout(128, 256))
+    a_layout=umma_layout(128, 16),
+    b_layout=umma_layout(256, 16),
+    c_layout=umma_layout(128, 256))
 
 # --- TF32 SS (K=8 because 256/32=8) ---
 
@@ -779,17 +779,17 @@ SM100_64x64x8_F32TF32TF32F32_SS = MMAAtom(
     name="SM100_64x64x8_F32TF32TF32F32_SS",
     ptx="tcgen05.mma ... m64n64k8.f32.tf32.tf32.f32",
     shape_mnk=(64, 64, 8), thr_id=Layout(1),
-    a_layout=_umma_layout(64, 8),
-    b_layout=_umma_layout(64, 8),
-    c_layout=_umma_layout(64, 64))
+    a_layout=umma_layout(64, 8),
+    b_layout=umma_layout(64, 8),
+    c_layout=umma_layout(64, 64))
 
 SM100_128x128x8_F32TF32TF32F32_SS = MMAAtom(
     name="SM100_128x128x8_F32TF32TF32F32_SS",
     ptx="tcgen05.mma ... m128n128k8.f32.tf32.tf32.f32",
     shape_mnk=(128, 128, 8), thr_id=Layout(1),
-    a_layout=_umma_layout(128, 8),
-    b_layout=_umma_layout(128, 8),
-    c_layout=_umma_layout(128, 128))
+    a_layout=umma_layout(128, 8),
+    b_layout=umma_layout(128, 8),
+    c_layout=umma_layout(128, 128))
 
 
 # --- SM100 UMMA factory ---
@@ -804,9 +804,9 @@ def make_umma_atom_ss(m: int, n: int, k: int = 16,
         name=name,
         ptx=f"tcgen05.mma ... m{m}n{n}k{k}",
         shape_mnk=(m, n, k), thr_id=Layout(1),
-        a_layout=_umma_layout(m, k),
-        b_layout=_umma_layout(n, k),
-        c_layout=_umma_layout(m, n))
+        a_layout=umma_layout(m, k),
+        b_layout=umma_layout(n, k),
+        c_layout=umma_layout(m, n))
 
 # F32-accumulator with F16 inputs
 SM100_64x64x16_F32F16F16_SS = make_umma_atom_ss(64, 64, d_type="F32", ab_type="F16")
