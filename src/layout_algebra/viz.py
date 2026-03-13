@@ -139,29 +139,38 @@ def _is_dark(hex_color: str) -> bool:
 # =============================================================================
 
 def _get_indices_2d(layout) -> np.ndarray:
-    """Extract offset indices from layout as 2D array."""
+    """Extract offset indices from layout as a displayed 2D grid.
+
+    For ordinary rank-2 layouts, displayed cell (row, col) corresponds to the
+    logical coordinate (row, col), with hierarchical sub-modes flattened within
+    each top-level mode. This keeps visualization semantics aligned with the
+    usual matrix interpretation used throughout the docs and examples.
+    """
     r = rank(layout)
     total = size(layout)
 
     if r == 0 or r == 1:
         rows, cols = 1, total
     elif r == 2:
-        rows = size(mode(layout, 0))
-        cols = size(mode(layout, 1))
+        row_shape = mode(layout.shape, 0)
+        col_shape = mode(layout.shape, 1)
+        rows = size(row_shape)
+        cols = size(col_shape)
     else:
         rows, cols = 1, total
 
     indices = np.zeros((rows, cols), dtype=np.int32)
 
-    for i in range(total):
-        coord = idx2crd(i, layout.shape)
-        idx = layout(coord)
-        if r == 2:
-            # Column-major indexing
-            r_idx, c_idx = i % rows, i // rows
-        else:
-            r_idx, c_idx = 0, i
-        indices[r_idx, c_idx] = idx
+    if r == 2:
+        for i in range(rows):
+            row_coord = idx2crd(i, row_shape)
+            for j in range(cols):
+                col_coord = idx2crd(j, col_shape)
+                indices[i, j] = layout(row_coord, col_coord)
+    else:
+        for i in range(total):
+            coord = idx2crd(i, layout.shape)
+            indices[0, i] = layout(coord)
 
     return indices
 

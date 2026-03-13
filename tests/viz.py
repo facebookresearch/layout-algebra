@@ -40,6 +40,7 @@ try:
     import matplotlib.figure
     import matplotlib.pyplot as plt
     from layout_algebra.viz import (
+        _get_indices_2d,
         draw_composite,
         draw_layout,
         draw_mma_layout,
@@ -170,3 +171,27 @@ def test_draw_composite_smoke():
             main_title="Composite Smoke",
             colorize=True,
         )
+
+
+@requires_viz
+def test_get_indices_2d_row_major_matches_logical_coordinates():
+    layout = Layout((4, 3), (3, 1))
+    indices = _get_indices_2d(layout)
+    assert indices.tolist() == [
+        [0, 1, 2],
+        [3, 4, 5],
+        [6, 7, 8],
+        [9, 10, 11],
+    ]
+
+
+@requires_viz
+def test_get_indices_2d_column_major_matches_logical_coordinates():
+    layout = Layout((4, 3), (1, 4))
+    indices = _get_indices_2d(layout)
+    assert indices.tolist() == [
+        [0, 4, 8],
+        [1, 5, 9],
+        [2, 6, 10],
+        [3, 7, 11],
+    ]
