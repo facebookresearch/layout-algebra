@@ -257,7 +257,12 @@ def test_concatenate_layouts():
         assert C(i) == L17(i)
 
 
-def test_flatten_tuples_and_layouts():
+def test_concatenate_scalar_layouts():
+    # concat on scalar (rank-0) layouts should produce a rank-2 layout,
+    # not do integer addition. Matches CuTe C++ make_layout.
+    result = concat(Layout(3, 1), Layout(4, 3))
+    assert result == Layout((3, 4), (1, 3))
+    assert size(result) == 12
     T0 = (1, 2, (3, 4), 5, (6,))
     assert flatten(T0) == (1, 2, 3, 4, 5, 6)
     L19 = Layout((1, 2, (3, 4), 5, (6,)))

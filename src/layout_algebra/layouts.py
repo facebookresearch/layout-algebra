@@ -564,7 +564,8 @@ def concat(t1: Any, t2: Any):
     if is_tuple(t1) and is_tuple(t2):
         return t1 + t2
     if isinstance(t1, Layout) and isinstance(t2, Layout):
-        return Layout(t1.shape + t2.shape, t1.stride + t2.stride)
+        return Layout(as_tuple(t1.shape) + as_tuple(t2.shape),
+                      as_tuple(t1.stride) + as_tuple(t2.stride))
     raise TypeError(
         f"Cannot concatenate objects of {type(t1).__name__} and {type(t2).__name__}"
     )
