@@ -810,13 +810,16 @@ def unflatten(obj, target_profile):
     if isinstance(obj, Layout):
         new_shape, remaining_s = _unflatten_helper(tuple(obj.shape), target_profile)
         new_stride, remaining_d = _unflatten_helper(tuple(obj.stride), target_profile)
-        assert len(remaining_s) == 0, f"Rank mismatch: leftover shape elements {remaining_s}"
-        assert len(remaining_d) == 0, f"Rank mismatch: leftover stride elements {remaining_d}"
+        if len(remaining_s) != 0:
+            raise ValueError(f"Rank mismatch: leftover shape elements {remaining_s}")
+        if len(remaining_d) != 0:
+            raise ValueError(f"Rank mismatch: leftover stride elements {remaining_d}")
         return Layout(new_shape, new_stride)
 
     if is_tuple(obj):
         result, remaining = _unflatten_helper(tuple(obj), target_profile)
-        assert len(remaining) == 0, f"Rank mismatch: leftover elements {remaining}"
+        if len(remaining) != 0:
+            raise ValueError(f"Rank mismatch: leftover elements {remaining}")
         return result
 
     raise TypeError(f"Cannot unflatten object of type {type(obj).__name__}")
@@ -910,7 +913,8 @@ def zip_transform(a: Any, b: Any, f) -> Any:
         zip_transform(((1, 2), 3), ((4, 5), 6), lambda x, y: x*y) -> ((4, 10), 18)
     """
     if is_tuple(a):
-        assert is_tuple(b) and len(a) == len(b), f"Structure mismatch: {a} vs {b}"
+        if not is_tuple(b) or len(a) != len(b):
+            raise ValueError(f"Structure mismatch: {a} vs {b}")
         return tuple(zip_transform(ai, bi, f) for ai, bi in zip(a, b))
     return f(a, b)
 
@@ -1020,10 +1024,12 @@ def inner_product(a: Any, b: Any) -> int:
         inner_product(((2, 3), 4), ((2, 1), 2)) -> 15
     """
     if is_tuple(a):
-        assert is_tuple(b) and len(a) == len(b)
+        if not is_tuple(b) or len(a) != len(b):
+            raise ValueError(f"Structure mismatch: {a} vs {b}")
         return sum(inner_product(x, y) for x, y in zip(a, b))
     else:
-        assert isinstance(a, int) and isinstance(b, int)
+        if not isinstance(a, int) or not isinstance(b, int):
+            raise TypeError(f"Expected int, got {type(a).__name__} and {type(b).__name__}")
         return a * b
 
 
@@ -1045,7 +1051,8 @@ def prefix_product(a: Any, init: Any = 1) -> Any:
     """
     if is_tuple(a):
         if is_tuple(init):
-            assert len(a) == len(init)
+            if len(a) != len(init):
+                raise ValueError(f"Length mismatch: {len(a)} vs {len(init)}")
             return zip_transform(a, init, prefix_product)
         else:
             r = []
@@ -1077,7 +1084,8 @@ def suffix_product(a: Any, init: Any = 1) -> Any:
     """
     if is_tuple(a):
         if is_tuple(init):
-            assert len(a) == len(init)
+            if len(a) != len(init):
+                raise ValueError(f"Length mismatch: {len(a)} vs {len(init)}")
             return zip_transform(a, init, suffix_product)
         else:
             r = []
@@ -1730,11 +1738,13 @@ def crd2crd(crd: Any, dst_shape: Any, src_shape: Any = None) -> Any:
     """
     if is_tuple(crd):
         if is_tuple(dst_shape):
-            assert len(crd) == len(dst_shape)
+            if len(crd) != len(dst_shape):
+                raise ValueError(f"Rank mismatch: crd has {len(crd)} elements, dst_shape has {len(dst_shape)}")
             return zip_transform(crd, dst_shape, crd2crd)
         else:
             # crd is tuple, dst_shape is scalar: flatten using src_shape
-            assert src_shape is not None, "src_shape required to flatten tuple coordinate to scalar"
+            if src_shape is None:
+                raise ValueError("src_shape required to flatten tuple coordinate to scalar")
             return crd2flat(crd, src_shape)
     else:
         if is_tuple(dst_shape):
@@ -1766,7 +1776,8 @@ def slice_modes(crd, trg):
     """
     if is_tuple(crd):
         if is_tuple(trg):
-            assert len(crd) == len(trg)
+            if len(crd) != len(trg):
+                raise ValueError(f"Rank mismatch: crd has {len(crd)} elements, trg has {len(trg)}")
             # Flatten and concatenate non-empty results
             result = []
             for c, s in zip(crd, trg):
@@ -1811,7 +1822,8 @@ def dice_modes(crd, layout):
         """Keep elements of trg paired with integers in crd."""
         if is_tuple(crd):
             if is_tuple(trg):
-                assert len(crd) == len(trg)
+                if len(crd) != len(trg):
+                    raise ValueError(f"Rank mismatch: crd has {len(crd)} elements, trg has {len(trg)}")
                 result = []
                 for c, s in zip(crd, trg):
                     result.extend(dice_tuple(c, s))
@@ -1909,8 +1921,10 @@ def safe_div(a: int, b: int) -> int:
     In CuTe, this is used when we know the division is exact.
     Returns a // b, asserting that b divides a.
     """
-    assert b != 0, "Division by zero"
-    assert a % b == 0, f"safe_div requires {b} to divide {a} evenly"
+    if b == 0:
+        raise ValueError("Division by zero")
+    if a % b != 0:
+        raise ValueError(f"safe_div requires {b} to divide {a} evenly")
     return a // b
 
 
@@ -1946,10 +1960,11 @@ def shape_div(shape: Any, divisor: int) -> Any:
         return shape
 
     def _scalar(s, d):
-        assert s % d == 0 or d % s == 0, (
-            f"shape_div({s}, {d}): one must divide the other for clean "
-            f"factorization"
-        )
+        if s % d != 0 and d % s != 0:
+            raise ValueError(
+                f"shape_div({s}, {d}): one must divide the other for clean "
+                f"factorization"
+            )
         return (s + d - 1) // d
 
     def _update(first, divisor):
@@ -2023,7 +2038,8 @@ def upcast(layout: "Layout", n: int) -> "Layout":
 
     def _apply(shape, stride):
         if is_tuple(shape):
-            assert is_tuple(stride) and len(shape) == len(stride)
+            if not is_tuple(stride) or len(shape) != len(stride):
+                raise ValueError(f"Shape/stride structure mismatch: {shape} vs {stride}")
             pairs = [_apply(s, d) for s, d in zip(shape, stride)]
             new_s = tuple(p[0] for p in pairs)
             new_d = tuple(p[1] for p in pairs)
@@ -2056,7 +2072,8 @@ def downcast(layout: "Layout", n: int) -> "Layout":
 
     def _apply(shape, stride):
         if is_tuple(shape):
-            assert is_tuple(stride) and len(shape) == len(stride)
+            if not is_tuple(stride) or len(shape) != len(stride):
+                raise ValueError(f"Shape/stride structure mismatch: {shape} vs {stride}")
             pairs = [_apply(s, d) for s, d in zip(shape, stride)]
             new_s = tuple(p[0] for p in pairs)
             new_d = tuple(p[1] for p in pairs)
@@ -2103,7 +2120,11 @@ def _composition_1d(layout_a: "Layout", b_shape: int, b_stride: int) -> "Layout"
 
     # Process all modes except the last
     for curr_shape, curr_stride in zip(flat_shapes[:-1], flat_strides[:-1]):
-        assert curr_shape % remaining_stride == 0 or remaining_stride % curr_shape == 0
+        if curr_shape % remaining_stride != 0 and remaining_stride % curr_shape != 0:
+            raise ValueError(
+                f"complement: shape {curr_shape} and stride {remaining_stride} "
+                f"are not divisible"
+            )
         new_shape = min(max(1, curr_shape // remaining_stride), remaining_shape)
         if new_shape != 1:
             result_shape.append(new_shape)
@@ -2636,7 +2657,10 @@ def hier_unzip(splitter, layout_a: Layout, layout_b) -> Layout:
         )
 
     if is_tuple(layout_b) and not isinstance(layout_b, Layout):
-        assert rank(layout_a) >= len(layout_b)
+        if rank(layout_a) < len(layout_b):
+            raise ValueError(
+                f"layout_a rank ({rank(layout_a)}) < tiler length ({len(layout_b)})"
+            )
 
         splits = [hier_unzip(splitter, mode(layout_a, i), layout_b[i])
                   for i in range(len(layout_b))]
@@ -2689,7 +2713,10 @@ def logical_product(layout_a: Layout, layout_b: Layout) -> Layout:
 
     # For tuple tilers, apply mode-by-mode
     if is_tuple(layout_b) and not isinstance(layout_b, Layout):
-        assert rank(layout_a) >= len(layout_b)
+        if rank(layout_a) < len(layout_b):
+            raise ValueError(
+                f"layout_a rank ({rank(layout_a)}) < tiler length ({len(layout_b)})"
+            )
         result_modes = []
         for i in range(len(layout_b)):
             result_modes.append(logical_product(mode(layout_a, i), layout_b[i]))
@@ -2858,8 +2885,8 @@ def _zip_layouts(layout_a: Layout, layout_b: Layout) -> Layout:
         # Both scalar: create a single mode with paired shapes/strides
         return Layout((layout_a.shape, layout_b.shape), (layout_a.stride, layout_b.stride))
 
-    assert a_rank == b_rank, \
-        f"Rank mismatch in zip: {a_rank} vs {b_rank}"
+    if a_rank != b_rank:
+        raise ValueError(f"Rank mismatch in zip: {a_rank} vs {b_rank}")
     r = a_rank
     result_shapes = []
     result_strides = []
@@ -3066,10 +3093,11 @@ def make_swizzle(Y: int, Z: int):
         A Swizzle, or None if both masks are zero (identity).
     """
     num_bits = bin(Y).count("1")
-    assert num_bits == bin(Z).count("1"), (
-        f"make_swizzle: bit count mismatch: popcount({Y:#b})={num_bits} "
-        f"vs popcount({Z:#b})={bin(Z).count('1')}"
-    )
+    if num_bits != bin(Z).count("1"):
+        raise ValueError(
+            f"make_swizzle: bit count mismatch: popcount({Y:#b})={num_bits} "
+            f"vs popcount({Z:#b})={bin(Z).count('1')}"
+        )
     if num_bits == 0:
         return None  # Identity swizzle
     tz_y = (Y & -Y).bit_length() - 1  # countr_zero(Y)

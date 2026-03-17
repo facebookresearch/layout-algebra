@@ -243,18 +243,28 @@ def make_mfma_atom(
     num_regs_per_blk = group_size * num_groups_per_blk
 
     # Sanity checks matching the CK static_asserts
-    assert num_threads_per_blk == n, \
-        f"num_threads_per_blk ({num_threads_per_blk}) != n ({n})"
-    assert num_regs_per_blk * num_input_blks == m, \
-        f"num_regs_per_blk * num_input_blks ({num_regs_per_blk * num_input_blks}) != m ({m})"
-    assert num_regs_per_blk * wave_size == m * n, \
-        f"num_regs_per_blk * wave_size ({num_regs_per_blk * wave_size}) != m*n ({m * n})"
-    assert wave_size == num_input_blks * num_threads_per_blk
+    if num_threads_per_blk != n:
+        raise ValueError(
+            f"num_threads_per_blk ({num_threads_per_blk}) != n ({n})")
+    if num_regs_per_blk * num_input_blks != m:
+        raise ValueError(
+            f"num_regs_per_blk * num_input_blks "
+            f"({num_regs_per_blk * num_input_blks}) != m ({m})")
+    if num_regs_per_blk * wave_size != m * n:
+        raise ValueError(
+            f"num_regs_per_blk * wave_size "
+            f"({num_regs_per_blk * wave_size}) != m*n ({m * n})")
+    if wave_size != num_input_blks * num_threads_per_blk:
+        raise ValueError(
+            f"wave_size ({wave_size}) != "
+            f"num_input_blks * num_threads_per_blk "
+            f"({num_input_blks * num_threads_per_blk})")
 
     # For k-reduction variants: K = k_per_blk * num_input_blks
     # For non-k-reduction: K = k_per_blk
     total_k = k_per_blk * num_input_blks if is_k_reduction else k_per_blk
-    assert total_k == k, f"total_k ({total_k}) != k ({k})"
+    if total_k != k:
+        raise ValueError(f"total_k ({total_k}) != k ({k})")
 
     c_layout = _mfma_c_layout(
         m, n, group_size, num_groups_per_blk,

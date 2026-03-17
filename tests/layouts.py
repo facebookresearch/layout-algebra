@@ -431,10 +431,10 @@ def test_shape_div_non_divisible():
     assert shape_div(8, 2) == 4      # 8%2==0
     assert shape_div(2, 8) == 1      # 8%2==0
 
-    # Invalid cases should raise AssertionError
-    with pytest.raises(AssertionError):
+    # Invalid cases should raise ValueError
+    with pytest.raises(ValueError):
         shape_div(6, 4)   # 6%4≠0, 4%6≠0
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         shape_div(4, 6)   # 4%6≠0, 6%4≠0
 
 
@@ -962,9 +962,9 @@ def test_safe_div():
     assert safe_div(12, 1) == 12
     assert safe_div(12, 12) == 1
     assert safe_div(0, 5) == 0
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         safe_div(12, 0)  # division by zero
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         safe_div(12, 5)  # 5 does not divide 12
 
 

@@ -536,11 +536,11 @@ def test_composition_truncation():
 
     # Layout((8, 8), (8, 1)) o Layout(2, 3) - invalid: stride 3 doesn't satisfy
     # the divisibility requirement with coalesced shape 64. pycute also asserts.
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         _test_composition_properties(Layout((8, 8), (8, 1)), Layout(2, 3))
 
     # Layout((8, 8), (8, 1)) o Layout(3, 3) - same issue
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         _test_composition_properties(Layout((8, 8), (8, 1)), Layout(3, 3))
 
     # Layout(3, 1) o Layout(4)

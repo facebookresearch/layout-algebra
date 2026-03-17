@@ -2662,7 +2662,8 @@ def _expand_hier_slice(spec, shape):
                 yield i
     elif is_tuple(spec):
         if is_tuple(shape):
-            assert len(spec) == len(shape)
+            if len(spec) != len(shape):
+                raise ValueError(f"Rank mismatch: spec has {len(spec)} elements, shape has {len(shape)}")
             sub_iters = [_expand_hier_slice(s, sh) for s, sh in zip(spec, shape)]
             for combo in itertools.product(*sub_iters):
                 yield combo

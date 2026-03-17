@@ -599,7 +599,8 @@ def make_gmma_atom_ss(n: int, k: int = 16, d_type: str = "F16",
     """
     if ab_type is None:
         ab_type = d_type
-    assert 8 <= n <= 256 and n % 8 == 0, f"N must be 8..256, multiple of 8, got {n}"
+    if not (8 <= n <= 256 and n % 8 == 0):
+        raise ValueError(f"N must be 8..256, multiple of 8, got {n}")
     name = f"SM90_64x{n}x{k}_{d_type}{ab_type}{ab_type}_SS"
     return MMAAtom(
         name=name,
@@ -673,7 +674,8 @@ def make_gmma_sparse_atom_ss(n: int, k: int = 32, d_type: str = "F16",
     """Create an SM90 GMMA sparse SS atom for 64×N×K."""
     if ab_type is None:
         ab_type = d_type
-    assert 8 <= n <= 256 and n % 8 == 0
+    if not (8 <= n <= 256 and n % 8 == 0):
+        raise ValueError(f"N must be 8..256, multiple of 8, got {n}")
     name = f"SM90_64x{n}x{k}_{d_type}{ab_type}{ab_type}_SS_SPARSE"
     return MMAAtom(
         name=name,
