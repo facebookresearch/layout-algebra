@@ -339,18 +339,20 @@ def example_hierarchical_layouts(output: Path):
         title=f"Flat: {hier_4level}",
         flatten_hierarchical=True,
     )
-    draw_layout(
-        hier_4level,
-        output / "hier_4level_asymmetric_nested.svg",
-        title=f"Nested: {hier_4level}",
-        flatten_hierarchical=False,
-        label_hierarchy_levels=True,
-    )
+    for ext in ("svg", "pdf", "png"):
+        draw_layout(
+            hier_4level,
+            output / f"hier_4level_asymmetric_nested.{ext}",
+            title=f"Nested: {hier_4level}",
+            flatten_hierarchical=False,
+            label_hierarchy_levels=True,
+            dpi=300 if ext == "png" else 150,
+        )
     print("✓ 4-level asymmetric hierarchy")
     print("  Row shape = (3,2,2,2), Col shape = (4,2,2,2)")
     print("  This example makes cells much smaller, so it is useful for checking")
     print("  whether hierarchy-level labels and colored boundaries remain readable.")
-    print("  Output: hier_4level_asymmetric_nested.svg")
+    print("  Output: hier_4level_asymmetric_nested.{svg,pdf,png}")
 
     # Flatten the hierarchical layout (algebra operation)
     flat_layout = flatten(hier_layout)
