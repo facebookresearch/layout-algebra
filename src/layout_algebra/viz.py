@@ -1174,6 +1174,48 @@ def _compute_tv_mapping(layout, grid_cols: Optional[int] = None,
     return inv_map
 
 
+def _draw_tv_cells(ax, tv_map: dict, rows: int, cols: int,
+                   colors, cell_size: float = 1.0,
+                   offset_x: float = 0.0, offset_y: float = 0.0,
+                   fontsize: float = 7, linewidth: float = 1.0):
+    """Draw TV cells from a precomputed mapping.
+
+    Shared cell-drawing loop used by _draw_tv_grid, draw_mma_layout, and
+    draw_tiled_grid.  Each cell displays "Tx" / "Vy" labels colored by
+    logical thread index.
+    """
+    for i in range(rows):
+        for j in range(cols):
+            key = (i, j)
+            if key in tv_map:
+                phys_t, v_idx, logical_t = tv_map[key]
+                t_idx = phys_t
+            else:
+                t_idx, v_idx, logical_t = -1, -1, -1
+
+            color_idx = logical_t % len(colors) if logical_t >= 0 else 0
+            facecolor = colors[color_idx]
+
+            x = offset_x + j
+            y = offset_y + i
+
+            rect = patches.Rectangle(
+                (x, y), cell_size, cell_size,
+                facecolor=facecolor, edgecolor='black', linewidth=linewidth
+            )
+            ax.add_patch(rect)
+
+            text_color = 'white' if _is_dark(facecolor) else 'black'
+            if t_idx >= 0:
+                ax.text(x + 0.5, y + 0.3, f"T{t_idx}",
+                        ha='center', va='center', fontsize=fontsize, color=text_color)
+                ax.text(x + 0.5, y + 0.7, f"V{v_idx}",
+                        ha='center', va='center', fontsize=fontsize, color=text_color)
+            else:
+                ax.text(x + 0.5, y + 0.5, "?",
+                        ha='center', va='center', fontsize=fontsize, color=text_color)
+
+
 def _draw_tv_grid(ax, layout,
                   cell_size: float = 1.0,
                   title: Optional[str] = None,
@@ -1238,43 +1280,7 @@ def _draw_tv_grid(ax, layout,
                     ha='center', va='top', fontsize=10, fontweight='bold')
 
     # Draw each cell
-    for i in range(rows):
-        for j in range(cols):
-            # Use (row, col) tuple as key since _compute_tv_mapping returns tuples
-            key = (i, j)
-
-            if key in tv_map:
-                phys_t, v_idx, logical_t = tv_map[key]
-                t_idx = phys_t       # physical thread ID for label
-                color_t = logical_t  # logical thread ID for color
-            else:
-                t_idx, v_idx, color_t = -1, -1, -1
-
-            # Color by logical thread index (so T0 and T16 get different colors)
-            color_idx = color_t % len(colors) if color_t >= 0 else 0
-            facecolor = colors[color_idx]
-            edgecolor = 'black'
-            linewidth = 1
-
-            # Draw cell
-            rect = patches.Rectangle(
-                (j, i), cell_size, cell_size,
-                facecolor=facecolor, edgecolor=edgecolor, linewidth=linewidth
-            )
-            ax.add_patch(rect)
-
-            # Draw "Tx" at top quarter and "Vy" at bottom quarter (cute-viz style)
-            text_color = 'white' if _is_dark(facecolor) else 'black'
-            if t_idx >= 0:
-                # Thread label at top quarter of cell
-                ax.text(j + 0.5, i + 0.3, f"T{t_idx}",
-                        ha='center', va='center', fontsize=7, color=text_color)
-                # Value label at bottom quarter of cell
-                ax.text(j + 0.5, i + 0.7, f"V{v_idx}",
-                        ha='center', va='center', fontsize=7, color=text_color)
-            else:
-                ax.text(j + 0.5, i + 0.5, "?",
-                        ha='center', va='center', fontsize=7, color=text_color)
+    _draw_tv_cells(ax, tv_map, rows, cols, colors, cell_size)
 
 
 def draw_tv_layout(layout, filename=None,
@@ -1394,18 +1400,18 @@ def draw_mma_layout(layout_a, layout_b, layout_c, filename=None,
 
     # Color palette (matching cute-viz: 8 pastel colors)
     if colorize:
-        rgb_colors = [
-            (175/255, 175/255, 255/255),  # light blue
-            (175/255, 255/255, 175/255),  # light green
-            (255/255, 255/255, 175/255),  # light yellow
-            (255/255, 175/255, 175/255),  # light red
-            (210/255, 210/255, 255/255),  # pale blue
-            (210/255, 255/255, 210/255),  # pale green
-            (255/255, 255/255, 210/255),  # pale yellow
-            (255/255, 210/255, 210/255),  # pale red
+        mma_colors = [
+            '#afafff',  # light blue
+            '#afffaf',  # light green
+            '#ffffaf',  # light yellow
+            '#ffafaf',  # light red
+            '#d2d2ff',  # pale blue
+            '#d2ffd2',  # pale green
+            '#ffffd2',  # pale yellow
+            '#ffd2d2',  # pale red
         ]
     else:
-        rgb_colors = _make_grayscale_palette(8)
+        mma_colors = _make_grayscale_palette(8)
 
     # Cell size and spacing (in figure units)
     cell_size = 1.0
@@ -1447,40 +1453,9 @@ def draw_mma_layout(layout_a, layout_b, layout_c, filename=None,
                 ax.text(offset_x + matrix_cols / 2, offset_y + matrix_rows + 0.6, title,
                         ha='center', va='top', fontsize=10, fontweight='bold')
 
-        for i in range(matrix_rows):
-            for j in range(matrix_cols):
-                # Use (row, col) tuple as key
-                key = (i, j)
-
-                if key in tv_map:
-                    phys_t, v_idx, logical_t = tv_map[key]
-                    t_idx = phys_t
-                else:
-                    t_idx, v_idx, logical_t = -1, -1, -1
-
-                color_idx = logical_t % len(rgb_colors) if logical_t >= 0 else 0
-                facecolor = rgb_colors[color_idx]
-
-                # Cell position
-                x = offset_x + j
-                y = offset_y + i
-
-                rect = patches.Rectangle(
-                    (x, y), cell_size, cell_size,
-                    facecolor=facecolor, edgecolor='black', linewidth=0.5
-                )
-                ax.add_patch(rect)
-
-                # Thread label at top quarter of cell (cute-viz style)
-                if t_idx >= 0:
-                    ax.text(x + 0.5, y + 0.3, f"T{t_idx}",
-                            ha='center', va='center', fontsize=6, color='black')
-                    # Value label at bottom quarter of cell
-                    ax.text(x + 0.5, y + 0.7, f"V{v_idx}",
-                            ha='center', va='center', fontsize=6, color='black')
-                else:
-                    ax.text(x + 0.5, y + 0.5, "?",
-                            ha='center', va='center', fontsize=6, color='gray')
+        _draw_tv_cells(ax, tv_map, matrix_rows, matrix_cols, mma_colors,
+                       offset_x=offset_x, offset_y=offset_y,
+                       fontsize=6, linewidth=0.5)
 
     # Position matrices
     # B: top-right (aligned with C columns) - B matrix has K rows, N cols
@@ -1557,22 +1532,7 @@ def draw_tiled_grid(grid: dict, rows: int, cols: int,
     ax.axis('off')
     if title:
         ax.set_title(title, fontsize=9, fontweight='bold', pad=8)
-    for i in range(rows):
-        for j in range(cols):
-            if (i, j) in grid:
-                pt, v, lt = grid[(i, j)]
-                fc = colors[lt % len(colors)]
-            else:
-                pt, v, fc = -1, -1, '#FFFFFF'
-            ax.add_patch(patches.Rectangle(
-                (j, i), 1, 1, facecolor=fc,
-                edgecolor='black', linewidth=0.5))
-            if pt >= 0:
-                tc = 'white' if _is_dark(fc) else 'black'
-                ax.text(j + 0.5, i + 0.35, f'T{pt}',
-                        ha='center', va='center', fontsize=font, color=tc)
-                ax.text(j + 0.5, i + 0.7, f'V{v}',
-                        ha='center', va='center', fontsize=font, color=tc)
+    _draw_tv_cells(ax, grid, rows, cols, colors, fontsize=font, linewidth=0.5)
     plt.tight_layout()
     _save_figure(fig, filename, dpi)
 
