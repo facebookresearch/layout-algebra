@@ -328,6 +328,72 @@ draw_tiled_grid(grid, tile_shape[0], tile_shape[1],
 | `dpi` | `int` | `150` | Resolution |
 | `title` | `str` | `None` | Title |
 
+## draw_copy_layout
+
+Side-by-side source and destination TV grids for a copy operation.
+Matches CUTLASS `print_latex_copy`: both panels use the same thread
+coloring so data movement is visually traceable.
+
+```python
+from layout_algebra import Layout, upcast
+from layout_algebra.atoms_nv import SM75_U32x4_LDSM_N
+from layout_algebra.viz import draw_copy_layout
+
+atom = SM75_U32x4_LDSM_N
+src = upcast(atom.src_layout_bits, 16)  # bit → fp16 elements
+dst = upcast(atom.dst_layout_bits, 16)
+draw_copy_layout(src, dst, title="SM75 LDMATRIX x4", colorize=True)
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `src_layout` | `Layout` | required | Source TV layout `(thread, value)` |
+| `dst_layout` | `Layout` | required | Destination TV layout `(thread, value)` |
+| `filename` | `str` | `None` | Output path |
+| `grid_shape` | `(r, c)` | `None` | Force grid shape (inferred from cosize if `None`) |
+| `title` | `str` | `None` | Title |
+| `dpi` | `int` | `150` | Resolution |
+| `colorize` | `bool` | `True` | Rainbow colors by thread ID |
+| `thr_id_layout` | `Layout` | `None` | Custom thread-ID-to-color mapping |
+| `col_major` | `bool` | `True` | Column-major grid ordering |
+
+## draw_combined_mma_grid
+
+Draw combined A/B/C grid-dict panels in the standard MMA arrangement.
+This is the grid-dict counterpart of `draw_mma_layout` — use it when
+you have pre-computed `(row, col) → (phys_thread, value, logical_thread)`
+dicts (e.g. from `tile_mma_grid`).
+
+```python
+from layout_algebra import Layout
+from layout_algebra.atoms_nv import SM80_16x8x16_F16F16F16F16_TN
+from layout_algebra.layout_utils import tile_mma_grid
+from layout_algebra.viz import draw_combined_mma_grid
+
+atom = SM80_16x8x16_F16F16F16F16_TN
+atom_layout = Layout((2, 2), (1, 2))
+c_grid, _ = tile_mma_grid(atom, atom_layout, 'C')
+a_grid, _ = tile_mma_grid(atom, atom_layout, 'A')
+b_grid, _ = tile_mma_grid(atom, atom_layout, 'B')
+M, N, K = 32, 16, 16
+draw_combined_mma_grid(a_grid, b_grid, c_grid, M, N, K,
+                       title="SM80 2x2 TiledMMA")
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `a_grid` | `dict` | required | A panel grid dict (M×K) |
+| `b_grid` | `dict` | required | B panel grid dict (K×N) |
+| `c_grid` | `dict` | required | C panel grid dict (M×N) |
+| `M, N, K` | `int` | required | Panel dimensions |
+| `filename` | `str` | `None` | Output path |
+| `dpi` | `int` | `150` | Resolution |
+| `title` | `str` | `None` | Title |
+
 ## Jupyter Inline Display
 
 `show_layout` and `show_swizzle` display inline and return the matplotlib
