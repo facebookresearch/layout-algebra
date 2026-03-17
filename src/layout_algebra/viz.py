@@ -1305,6 +1305,33 @@ def _draw_tv_grid(ax, layout,
     _draw_tv_cells(ax, tv_map, rows, cols, colors, cell_size)
 
 
+def _build_tv_figure(layout,
+                     title: Optional[str] = None,
+                     figsize: Optional[Tuple[float, float]] = None,
+                     colorize: bool = False,
+                     num_threads: Optional[int] = None,
+                     grid_shape: Optional[Tuple[int, int]] = None,
+                     thr_id_layout=None,
+                     col_major: bool = True):
+    """Build the TV figure used by draw_tv_layout/show_tv_layout."""
+    r = rank(layout)
+    if r != 2:
+        raise ValueError(f"TV layout must be rank 2, got rank {r}")
+
+    rows, cols = _infer_tv_grid_shape(layout, grid_shape=grid_shape)
+
+    if figsize is None:
+        figsize = (cols * 0.6 + 1.5, rows * 0.5 + 1)
+
+    fig, ax = plt.subplots(figsize=figsize)
+    _draw_tv_grid(ax, layout, title=title or f"TV: {layout}",
+                  colorize=colorize, num_threads=num_threads,
+                  grid_rows=rows, grid_cols=cols,
+                  thr_id_layout=thr_id_layout,
+                  col_major=col_major)
+    return fig
+
+
 def draw_tv_layout(layout, filename=None,
                    title: Optional[str] = None,
                    dpi: int = 150,
@@ -1339,22 +1366,10 @@ def draw_tv_layout(layout, filename=None,
         mma_a = Layout(((4,2,2,2), (2,2)), ((32,1,8,128), (16,4)))
         draw_tv_layout(mma_a, "mma_a.svg", grid_shape=(16, 8))
     """
-    r = rank(layout)
-    if r != 2:
-        raise ValueError(f"TV layout must be rank 2, got rank {r}")
-
-    # Determine grid dimensions
-    rows, cols = _infer_tv_grid_shape(layout, grid_shape=grid_shape)
-
-    if figsize is None:
-        figsize = (cols * 0.6 + 1.5, rows * 0.5 + 1)
-
-    fig, ax = plt.subplots(figsize=figsize)
-    _draw_tv_grid(ax, layout, title=title or f"TV: {layout}",
-                  colorize=colorize, num_threads=num_threads,
-                  grid_rows=rows, grid_cols=cols,
-                  thr_id_layout=thr_id_layout,
-                  col_major=col_major)
+    fig = _build_tv_figure(layout, title=title, figsize=figsize,
+                           colorize=colorize, num_threads=num_threads,
+                           grid_shape=grid_shape, thr_id_layout=thr_id_layout,
+                           col_major=col_major)
     _save_figure(fig, filename, dpi)
 
 
@@ -1842,6 +1857,34 @@ def show_swizzle(base_layout, swizzle,
                                  figsize=figsize,
                                  colorize=colorize,
                                  num_shades=num_shades)
+
+
+def show_tv_layout(layout, title: Optional[str] = None,
+                   figsize: Optional[Tuple[float, float]] = None,
+                   colorize: bool = False,
+                   num_threads: Optional[int] = None,
+                   grid_shape: Optional[Tuple[int, int]] = None,
+                   thr_id_layout=None,
+                   col_major: bool = True):
+    """Display a TV layout inline (for Jupyter notebooks).
+
+    Args:
+        layout: Layout object with shape (T, V) for Thread-Value
+        title: Optional title (defaults to "TV: {layout}")
+        figsize: Figure size in inches (auto-calculated if None)
+        colorize: If True, use rainbow colors; if False, use grayscale
+        num_threads: Override number of colors (defaults to T dimension)
+        grid_shape: Optional (rows, cols) for the output grid
+        thr_id_layout: Optional layout for thread ID mapping
+        col_major: If True, fill columns first (default)
+
+    Returns:
+        matplotlib Figure
+    """
+    return _build_tv_figure(layout, title=title, figsize=figsize,
+                            colorize=colorize, num_threads=num_threads,
+                            grid_shape=grid_shape, thr_id_layout=thr_id_layout,
+                            col_major=col_major)
 
 
 # =============================================================================
