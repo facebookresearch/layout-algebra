@@ -41,6 +41,7 @@ try:
     import matplotlib.pyplot as plt
     import layout_algebra.viz as viz_mod
     from layout_algebra.viz import (
+        _build_swizzle_figure,
         _compute_tv_mapping,
         _draw_hierarchical_grid,
         _format_hierarchical_cell_lines,
@@ -366,3 +367,19 @@ def test_compute_tv_mapping_raises_for_out_of_bounds_grid():
     layout = Layout((2, 2), (1, 2))
     with pytest.raises(ValueError, match="out of bounds"):
         _compute_tv_mapping(layout, grid_rows=1, grid_cols=1)
+
+
+@requires_viz
+def test_show_swizzle_delegates_to_shared_builder(monkeypatch):
+    layout = Layout((8, 64), (64, 1))
+    swizzle = Swizzle(3, 4, 3)
+    fig = plt.figure()
+
+    def fake_builder(*args, **kwargs):
+        return fig
+
+    monkeypatch.setattr(viz_mod, "_build_swizzle_figure", fake_builder)
+    try:
+        assert show_swizzle(layout, swizzle) is fig
+    finally:
+        plt.close(fig)

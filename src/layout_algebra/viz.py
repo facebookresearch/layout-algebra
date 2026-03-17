@@ -1400,6 +1400,58 @@ def draw_tiled_grid(grid: dict, rows: int, cols: int,
     _save_figure(fig, filename, dpi)
 
 
+def _build_swizzle_figure(base_layout, swizzle,
+                          figsize: Optional[Tuple[float, float]] = None,
+                          colorize: bool = False,
+                          num_shades: int = 8):
+    """Build the swizzle comparison figure used by draw_swizzle/show_swizzle."""
+    sw_layout = compose(swizzle, base_layout)
+
+    linear_idx = _get_indices_2d(base_layout)
+    swizzle_idx = _get_indices_2d(sw_layout)
+
+    rows, cols = linear_idx.shape
+
+    if swizzle.base > 0 and cols > (1 << swizzle.base):
+        block_size = 1 << swizzle.base
+        blocks_per_row = cols // block_size
+
+        if figsize is None:
+            figsize = (cols * 0.6 + 3, rows * 0.5 + 1.5)
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
+        _draw_grid_by_bits(ax1, linear_idx, swizzle.base,
+                           title=f"Linear: {base_layout}",
+                           colorize=colorize, num_shades=blocks_per_row)
+        _draw_grid_by_bits(ax2, swizzle_idx, swizzle.base,
+                           title=f"Swizzled: {swizzle}",
+                           colorize=colorize, num_shades=blocks_per_row)
+    elif swizzle.base == 0:
+        if figsize is None:
+            figsize = (cols * 1.0 + 3, rows * 0.5 + 1.5)
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
+        _draw_grid_by_value_mod(ax1, linear_idx, title=f"Linear: {base_layout}",
+                                colorize=colorize, num_shades=num_shades)
+        _draw_grid_by_value_mod(ax2, swizzle_idx, title=f"Swizzled: {swizzle}",
+                                colorize=colorize, num_shades=num_shades)
+    else:
+        if figsize is None:
+            figsize = (cols * 1.0 + 3, rows * 0.5 + 1.5)
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
+        bit_shift = swizzle.base
+        distinct_groups = len(set(int(v) >> bit_shift for v in linear_idx.flat))
+        effective_shades = max(num_shades, distinct_groups)
+        _draw_grid_by_bits(ax1, linear_idx, bit_shift, title=f"Linear: {base_layout}",
+                           colorize=colorize, num_shades=effective_shades)
+        _draw_grid_by_bits(ax2, swizzle_idx, bit_shift, title=f"Swizzled: {swizzle}",
+                           colorize=colorize, num_shades=effective_shades)
+
+    plt.tight_layout()
+    return fig
+
+
 def draw_swizzle(base_layout, swizzle, filename=None,
                  dpi: int = 150,
                  figsize: Optional[Tuple[float, float]] = None,
@@ -1425,62 +1477,10 @@ def draw_swizzle(base_layout, swizzle, filename=None,
         colorize: If True, use rainbow colors (makes swizzle movement clearer)
         num_shades: Number of colors/shades in palette
     """
-    sw_layout = compose(swizzle, base_layout)
-
-    linear_idx = _get_indices_2d(base_layout)
-    swizzle_idx = _get_indices_2d(sw_layout)
-
-    rows, cols = linear_idx.shape
-
-    if swizzle.base > 0 and cols > (1 << swizzle.base):
-        # Full element view with block-based coloring: show every element but
-        # color by which block of 2^base elements it belongs to.  This matches
-        # the presentation style used by NVIDIA's CuTe swizzle visualizations
-        # where all values are visible and color bands reveal the permutation.
-        block_size = 1 << swizzle.base
-        blocks_per_row = cols // block_size
-
-        if figsize is None:
-            figsize = (cols * 0.6 + 3, rows * 0.5 + 1.5)
-
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
-
-        # Color by block identity: (val >> base) % blocks_per_row
-        # In the linear layout these form contiguous color bands;
-        # in the swizzled layout the bands get permuted across rows.
-        _draw_grid_by_bits(ax1, linear_idx, swizzle.base,
-                           title=f"Linear: {base_layout}",
-                           colorize=colorize, num_shades=blocks_per_row)
-        _draw_grid_by_bits(ax2, swizzle_idx, swizzle.base,
-                           title=f"Swizzled: {swizzle}",
-                           colorize=colorize, num_shades=blocks_per_row)
-    elif swizzle.base == 0:
-        # Element-level view: color by value % num_shades
-        if figsize is None:
-            figsize = (cols * 1.0 + 3, rows * 0.5 + 1.5)
-
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
-
-        _draw_grid_by_value_mod(ax1, linear_idx, title=f"Linear: {base_layout}",
-                                colorize=colorize, num_shades=num_shades)
-        _draw_grid_by_value_mod(ax2, swizzle_idx, title=f"Swizzled: {swizzle}",
-                                colorize=colorize, num_shades=num_shades)
-    else:
-        # base>0 but grid not wide enough for block view — fall back to bit-shift
-        if figsize is None:
-            figsize = (cols * 1.0 + 3, rows * 0.5 + 1.5)
-
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
-
-        bit_shift = swizzle.base
-        distinct_groups = len(set(int(v) >> bit_shift for v in linear_idx.flat))
-        effective_shades = max(num_shades, distinct_groups)
-        _draw_grid_by_bits(ax1, linear_idx, bit_shift, title=f"Linear: {base_layout}",
-                           colorize=colorize, num_shades=effective_shades)
-        _draw_grid_by_bits(ax2, swizzle_idx, bit_shift, title=f"Swizzled: {swizzle}",
-                           colorize=colorize, num_shades=effective_shades)
-
-    plt.tight_layout()
+    fig = _build_swizzle_figure(base_layout, swizzle,
+                                figsize=figsize,
+                                colorize=colorize,
+                                num_shades=num_shades)
     _save_figure(fig, filename, dpi)
 
 
@@ -1835,27 +1835,10 @@ def show_swizzle(base_layout, swizzle,
     Returns:
         matplotlib Figure
     """
-    sw_layout = compose(swizzle, base_layout)
-
-    linear_idx = _get_indices_2d(base_layout)
-    swizzle_idx = _get_indices_2d(sw_layout)
-
-    rows, cols = linear_idx.shape
-
-    if figsize is None:
-        figsize = (cols * 1.0 + 3, rows * 0.5 + 1.5)
-
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
-
-    # Color by the bits that the swizzle affects
-    bit_shift = swizzle.base
-    _draw_grid_by_bits(ax1, linear_idx, bit_shift, title=f"Linear: {base_layout}",
-                       colorize=colorize, num_shades=num_shades)
-    _draw_grid_by_bits(ax2, swizzle_idx, bit_shift, title=f"Swizzled: {swizzle}",
-                       colorize=colorize, num_shades=num_shades)
-
-    plt.tight_layout()
-    return fig
+    return _build_swizzle_figure(base_layout, swizzle,
+                                 figsize=figsize,
+                                 colorize=colorize,
+                                 num_shades=num_shades)
 
 
 # =============================================================================
