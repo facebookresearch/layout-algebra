@@ -26,4 +26,9 @@ from .layouts import *  # noqa: F401,F403
 from .tensor import Tensor  # noqa: F401
 from .atoms import MMAAtom, CopyAtom  # noqa: F401
 
-__version__ = "0.1.0"
+from importlib.metadata import version, PackageNotFoundError  # noqa: F401
+
+try:
+    __version__ = version("layout-algebra")
+except PackageNotFoundError:
+    __version__ = "0.1.0"
