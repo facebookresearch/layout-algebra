@@ -49,6 +49,7 @@ Requirements:
     pip install matplotlib numpy
 """
 
+import itertools
 from functools import lru_cache
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -1884,8 +1885,6 @@ def _expand_hier_slice(spec, shape):
         # Wildcard: enumerate all valid coordinates for this sub-shape
         if is_tuple(shape):
             sub_iters = [_expand_hier_slice(None, s) for s in shape]
-            # Cartesian product
-            import itertools
             for combo in itertools.product(*sub_iters):
                 yield combo
         else:
@@ -1896,7 +1895,6 @@ def _expand_hier_slice(spec, shape):
         if is_tuple(shape):
             assert len(spec) == len(shape)
             sub_iters = [_expand_hier_slice(s, sh) for s, sh in zip(spec, shape)]
-            import itertools
             for combo in itertools.product(*sub_iters):
                 yield combo
         else:
