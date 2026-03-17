@@ -1724,7 +1724,7 @@ def _build_mma_figure(layout_a, layout_b, layout_c,
 
         if title:
             if title_above:
-                ax.text(offset_x + matrix_cols / 2, offset_y - 0.6, title,
+                ax.text(offset_x + matrix_cols / 2, offset_y - 1.2, title,
                         ha='center', va='bottom', fontsize=10, fontweight='bold')
             else:
                 ax.text(offset_x + matrix_cols / 2, offset_y + matrix_rows + 0.6, title,

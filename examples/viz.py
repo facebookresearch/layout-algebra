@@ -677,8 +677,6 @@ def example_copy_atoms(output: Path):
         n_val = size(mode(dst, 1))
         print(f"✓ {atom.name}  Dst: {dst}  ({n_thr} thr × {n_val} val)")
 
-        print(f"✓ {atom.name}  Dst: {dst}  ({n_thr} thr × {n_val} val)")
-
     # =====================================================================
     # SM90 STMATRIX — stmatrix.sync.aligned.m8n8.shared.b16
     # Inverse of SM75 LDMATRIX: STSM Src = LDSM Dst, STSM Dst = LDSM Src
@@ -741,22 +739,31 @@ def _draw_mma_atom(atom, output: Path):
     M, N, K = atom.shape_mnk
     thr = atom.thr_id
 
+    # For atoms with broadcast (stride-0), cosize < M*K. Use cosize-based
+    # grid dimensions so every cell maps to a thread — no '?' cells.
+    cs_a = cosize(atom.a_layout)
+    cs_b = cosize(atom.b_layout)
+    cs_c = cosize(atom.c_layout)
+    a_rows, a_cols = M, cs_a // M if cs_a % M == 0 else K
+    b_rows, b_cols = cs_b // N if cs_b % N == 0 else K, N
+    c_rows, c_cols = M, cs_c // M if cs_c % M == 0 else N
+
     draw_tv_layout(atom.a_layout, output / f"{name}_A.svg",
-                   title=f"{name}  A ({M}×{K})",
-                   colorize=True, grid_shape=(M, K), thr_id_layout=thr)
+                   title=f"{name}  A ({a_rows}×{a_cols})",
+                   colorize=True, grid_shape=(a_rows, a_cols), thr_id_layout=thr)
 
     draw_tv_layout(atom.b_layout, output / f"{name}_B.svg",
-                   title=f"{name}  B ({K}×{N})",
-                   colorize=True, grid_shape=(K, N), thr_id_layout=thr,
+                   title=f"{name}  B ({b_rows}×{b_cols})",
+                   colorize=True, grid_shape=(b_rows, b_cols), thr_id_layout=thr,
                    col_major=False)
 
     draw_tv_layout(atom.c_layout, output / f"{name}_C.svg",
-                   title=f"{name}  C ({M}×{N})",
-                   colorize=True, grid_shape=(M, N), thr_id_layout=thr)
+                   title=f"{name}  C ({c_rows}×{c_cols})",
+                   colorize=True, grid_shape=(c_rows, c_cols), thr_id_layout=thr)
 
     draw_mma_layout(atom.a_layout, atom.b_layout, atom.c_layout,
                     output / f"{name}_combined.svg",
-                    tile_mnk=(M, N, K), main_title=name,
+                    tile_mnk=(a_rows, c_cols, a_cols), main_title=name,
                     colorize=True, thr_id_layout=thr)
 
     n_thr = size(mode(atom.c_layout, 0))
