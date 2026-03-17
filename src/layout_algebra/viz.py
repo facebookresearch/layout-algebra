@@ -209,12 +209,12 @@ def _get_color_indices_2d(layout, color_layout) -> Optional[np.ndarray]:
     layout_rank = rank(layout)
     color_rank = rank(color_layout)
 
-    if color_rank == 0:
+    if size(color_layout) == 1:
         color_idx = _color_result_to_index(color_layout(0))
         color_indices.fill(color_idx)
         return color_indices
 
-    if color_rank == 1:
+    if color_rank <= 1:
         for i in range(rows):
             for j in range(cols):
                 flat_idx = i * cols + j

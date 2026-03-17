@@ -243,6 +243,13 @@ def test_get_color_indices_2d_uniform_layout_is_uniform():
     ]
 
 
+def test_get_color_indices_2d_1d_layout_is_not_treated_as_uniform():
+    layout = Layout(4, 1)
+    color_layout = Layout(4, 1)
+    color_indices = _get_color_indices_2d(layout, color_layout)
+    assert color_indices.tolist() == [[0, 1, 2, 3]]
+
+
 @requires_viz
 def test_get_hierarchical_cell_coords_2d_preserves_nested_coordinates():
     layout = Layout(((2, 3), (2, 4)), ((1, 6), (2, 12)))
