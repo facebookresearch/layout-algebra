@@ -241,6 +241,10 @@ def _prepare_offset_grid(layout, color_layout=None,
             row_shape = mode(layout.shape, 0)
             col_shape = mode(layout.shape, 1)
         except (ValueError, TypeError):
+            # Hierarchical index extraction can fail for layouts whose shape
+            # structure doesn't decompose cleanly into 2D row/col modes
+            # (e.g., rank-1 layouts, deeply nested shapes).  Fall back to
+            # flat offset display which works for any layout.
             indices = _get_indices_2d(layout)
             hierarchical = False
     else:
@@ -462,6 +466,10 @@ def _draw_grid(ax, indices: np.ndarray,
             zorder_base=4,
         )
 
+    # Two-pass rendering for correct z-ordering:
+    #   Pass 1 (below): draw all base cells at zorder=1
+    #   Pass 2 (line ~469): overlay highlights at zorder=6 with thicker borders
+    # This ensures highlight borders aren't obscured by adjacent base cells.
     for i, j in highlighted_cells:
         rect = patches.Rectangle(
             (j, i), cell_size, cell_size,
@@ -1500,6 +1508,9 @@ def _build_mma_figure(layout_a, layout_b, layout_c,
     if tile_mnk:
         M, N, K = tile_mnk
     else:
+        # Infer M, K, N from layout cosizes when tile_mnk is not provided.
+        # A is M×K, C is M×N.  Start with M = sqrt(cosize_a) and search
+        # downward for a divisor (heuristic: assumes roughly square tiles).
         cosize_a = cosize(layout_a)
         cosize_c = cosize(layout_c)
         M = int(np.sqrt(cosize_a))
@@ -1810,7 +1821,10 @@ def draw_copy_layout(src_layout, dst_layout, filename=None,
         dpi: Resolution for raster formats
         colorize: If True, use rainbow colors; if False, use grayscale
         thr_id_layout: Optional layout for thread ID mapping
-        col_major: If True, fill columns first (default)
+        col_major: If True (default), use column-major decomposition
+                    (CuTe A/C convention: row = offset % rows).
+                    If False, use row-major (CuTe B convention:
+                    row = offset // cols).
 
     Example:
         # LDMATRIX x4 non-transpose (fp16)
@@ -2163,7 +2177,10 @@ def show_copy_layout(src_layout, dst_layout,
         title: Optional title
         colorize: If True, use rainbow colors
         thr_id_layout: Optional layout for thread ID mapping
-        col_major: If True, fill columns first (default)
+        col_major: If True (default), use column-major decomposition
+                    (CuTe A/C convention: row = offset % rows).
+                    If False, use row-major (CuTe B convention:
+                    row = offset // cols).
 
     Returns:
         matplotlib Figure
@@ -2191,7 +2208,10 @@ def show_tv_layout(layout, title: Optional[str] = None,
         num_threads: Override number of colors (defaults to T dimension)
         grid_shape: Optional (rows, cols) for the output grid
         thr_id_layout: Optional layout for thread ID mapping
-        col_major: If True, fill columns first (default)
+        col_major: If True (default), use column-major decomposition
+                    (CuTe A/C convention: row = offset % rows).
+                    If False, use row-major (CuTe B convention:
+                    row = offset // cols).
 
     Returns:
         matplotlib Figure
