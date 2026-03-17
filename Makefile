@@ -1,4 +1,4 @@
-.PHONY: build clean test docs
+.PHONY: build clean test docs lint
 
 build:
 	pip install -e .
@@ -15,3 +15,6 @@ test:
 
 docs:
 	PYTHONPATH=src python3 docs/generate_figures.py
+
+lint:
+	ruff check src/ tests/ examples/

@@ -33,7 +33,7 @@ viz = ["matplotlib>=3.5"]
 test = ["pytest>=7.0"]
 oracle-nv = ["nvidia-cutlass"]
 oracle-amd = ["amd-matrix-instruction-calculator"]
-dev = ["pytest>=7.0", "matplotlib>=3.5"]
+dev = ["pytest>=7.0", "matplotlib>=3.5", "ruff>=0.4"]
 
 [project.urls]
 Homepage = "https://github.com/facebookresearch/layout-algebra"
@@ -50,3 +50,19 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["*.py"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]
+"tests/*.py" = ["F403", "F405", "E741"]
+"examples/*" = ["E402", "F403", "F405", "F541"]
+"src/layout_algebra/layout_utils.py" = ["F403", "F405"]
+"src/layout_algebra/tensor.py" = ["F403", "F405"]
+"src/layout_algebra/viz.py" = ["F403", "F405"]

@@ -51,8 +51,6 @@ Usage:
     print(SM70_8x8x4_F32F16F16F32_NT.a_layout)
 """
 
-from typing import Optional, Tuple
-
 from .layouts import Layout
 from .atoms import MMAAtom, CopyAtom
 # =============================================================================

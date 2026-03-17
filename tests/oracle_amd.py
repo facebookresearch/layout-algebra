@@ -47,7 +47,7 @@ from layout_algebra.layouts import (
     compose, complement, flatten, coalesce,
     logical_divide, logical_product,
     left_inverse, right_inverse,
-    idx2crd, crd2idx, as_tuple,
+    idx2crd, crd2idx,
 )
 from layout_algebra.layout_utils import (
     make_ordered_layout, tile_to_shape, product_each,

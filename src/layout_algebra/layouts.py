@@ -345,7 +345,7 @@ class Layout:
 
         else:
             raise TypeError(
-                f"Layout() takes shapes/stride arguments or multiple Layout arguments for bundling"
+                "Layout() takes shapes/stride arguments or multiple Layout arguments for bundling"
             )
 
         if not congruent(self._shape, self._stride):

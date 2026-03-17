@@ -50,7 +50,7 @@ Requirements:
 """
 
 import itertools
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional, Tuple
@@ -72,7 +72,6 @@ from matplotlib.font_manager import FontProperties
 from matplotlib.textpath import TextToPath
 
 from .layouts import *
-from .atoms import CopyAtom
 from .tensor import Tensor
 
 __all__ = [
@@ -2032,7 +2031,6 @@ def _build_mma_figure(
     else:
         mma_colors = _make_grayscale_palette(8)
 
-    cell_size = 1.0
     gap = 2.0
     label_margin = 1.5
 
@@ -3218,7 +3216,6 @@ def demo(output_dir: str = "."):
     """Generate example visualizations in all formats."""
     from pathlib import Path
 
-    from .layouts import logical_divide
 
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
@@ -3232,56 +3229,56 @@ def demo(output_dir: str = "."):
     draw_layout(layout_8x8, output / "row_major.svg")
     draw_layout(layout_8x8, output / "row_major.png")
     draw_layout(layout_8x8, output / "row_major.pdf")
-    print(f"✓ Row-major 8x8 (SVG, PNG, PDF)")
+    print("✓ Row-major 8x8 (SVG, PNG, PDF)")
 
     layout_col = Layout((8, 8), (1, 8))
     draw_layout(layout_col, output / "col_major.svg")
-    print(f"✓ Column-major 8x8")
+    print("✓ Column-major 8x8")
 
     # Swizzle comparisons
     draw_swizzle(Layout((8, 8), (8, 1)), Swizzle(3, 0, 3), output / "swizzle_303.svg")
     draw_swizzle(Layout((8, 8), (8, 1)), Swizzle(3, 0, 3), output / "swizzle_303.png")
-    print(f"✓ Swizzle(3,0,3) comparison (SVG, PNG)")
+    print("✓ Swizzle(3,0,3) comparison (SVG, PNG)")
 
     draw_swizzle(Layout((8, 8), (8, 1)), Swizzle(2, 0, 3), output / "swizzle_203.svg")
-    print(f"✓ Swizzle(2,0,3) comparison")
+    print("✓ Swizzle(2,0,3) comparison")
 
     draw_swizzle(Layout((4, 8), (8, 1)), Swizzle(2, 1, 3), output / "swizzle_213.svg")
-    print(f"✓ Swizzle(2,1,3) on 4x8")
+    print("✓ Swizzle(2,1,3) on 4x8")
 
     # Slice highlights
     layout_4x8 = Layout((4, 8), (8, 1))
     draw_slice(layout_4x8, (2, None), output / "slice_row.svg")
     draw_slice(layout_4x8, (2, None), output / "slice_row.png")
-    print(f"✓ Slice row 2 (SVG, PNG)")
+    print("✓ Slice row 2 (SVG, PNG)")
 
     draw_slice(layout_4x8, (None, 5), output / "slice_col.svg")
-    print(f"✓ Slice column 5")
+    print("✓ Slice column 5")
 
     draw_slice(layout_4x8, (2, 5), output / "slice_single.svg")
-    print(f"✓ Slice single element (2, 5)")
+    print("✓ Slice single element (2, 5)")
 
     draw_slice(layout_4x8, (slice(1, 3), slice(2, 6)), output / "slice_rect.svg")
-    print(f"✓ Slice rectangular region")
+    print("✓ Slice rectangular region")
 
     # Hierarchical layout
     hier = Layout(((2, 4), 8), ((1, 2), 8))
     draw_layout(hier, output / "hierarchical.svg")
     draw_layout(hier, output / "hierarchical.png")
-    print(f"✓ Hierarchical layout (SVG, PNG)")
+    print("✓ Hierarchical layout (SVG, PNG)")
 
     # Logical divide
     divided = Layout((4, 4), (1, 4))  # Result of logical_divide
     draw_layout(divided, output / "divide_result.svg")
-    print(f"✓ Logical divide result")
+    print("✓ Logical divide result")
 
     # Different sizes
     draw_layout(Layout((4, 16), (16, 1)), output / "wide.svg")
     draw_layout(Layout((16, 4), (4, 1)), output / "tall.svg")
-    print(f"✓ Wide and tall layouts")
+    print("✓ Wide and tall layouts")
 
     print(f"\n✓ All visualizations saved to {output_dir}/")
-    print(f"  Formats: .svg (vector), .png (raster), .pdf (print)")
+    print("  Formats: .svg (vector), .png (raster), .pdf (print)")
 
 
 if __name__ == "__main__":

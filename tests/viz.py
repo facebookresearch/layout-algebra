@@ -28,7 +28,7 @@ import pytest
 from layout_algebra import Layout, Swizzle
 from layout_algebra.tensor import Tensor
 from layout_algebra.layouts import (
-    mode, rank, flat_divide, tiled_divide, flat_product,
+    mode, rank, flat_divide,
 )
 from layout_algebra.atoms_amd import (
     CDNA3P_16x16x32_F32F16F16_MFMA,
@@ -48,7 +48,7 @@ try:
     from matplotlib.transforms import Bbox
     import layout_algebra.viz as viz_mod
     from layout_algebra.viz import (
-        _build_swizzle_figure,
+        _build_swizzle_figure,  # noqa: F401 (used via monkeypatch)
         _compute_tv_mapping,
         _draw_hierarchical_grid,
         _format_hierarchical_cell_lines,
