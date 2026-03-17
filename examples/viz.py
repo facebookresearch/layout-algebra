@@ -49,6 +49,7 @@ if str(SRC_DIR) not in sys.path:
 
 from layout_algebra import *
 from layout_algebra.atoms_nv import *
+from layout_algebra.atoms_amd import *
 from layout_algebra.viz import *
 
 
@@ -135,6 +136,13 @@ def example_output_formats(output: Path):
                 title="colorize=True, by column",
                 colorize=True, color_layout=Layout((8, 8), (0, 1)))
     print(f"✓ Rainbow by column: color_by_col_rainbow.svg")
+
+    # color_by shorthand — equivalent to the manual color_layout above
+    draw_layout(layout_8x8, output / "color_by_row_shorthand.svg",
+                title='color_by="row"', color_by="row")
+    draw_layout(layout_8x8, output / "color_by_col_shorthand.svg",
+                title='color_by="column"', color_by="column")
+    print(f"✓ color_by shorthand: color_by_row_shorthand.svg, color_by_col_shorthand.svg")
 
     # Swizzle comparison showing row-group coloring (reveals permutation effect)
     base = Layout((8, 8), (8, 1))
@@ -660,20 +668,14 @@ def example_copy_atoms(output: Path):
         SM75_U16x8_LDSM_T,
     ]
     for atom in ldsm_atoms:
-        src = upcast(atom.src_layout_bits, element_bits)
+        # draw_copy_atom handles upcast from bit to element coords automatically
+        draw_copy_atom(atom, element_bits=element_bits,
+                       filename=output / f"{atom.name}_copy.svg")
+
         dst = upcast(atom.dst_layout_bits, element_bits)
         n_thr = size(atom.thr_id)
         n_val = size(mode(dst, 1))
-
-        # Individual dst TV layout
-        draw_tv_layout(dst, output / f"{atom.name}.svg",
-                       title=f"{atom.name}  ({atom.ptx})",
-                       colorize=True)
-
-        # Side-by-side src/dst copy layout
-        draw_copy_layout(src, dst, output / f"{atom.name}_copy.svg",
-                         title=f"{atom.name}  ({atom.ptx})",
-                         colorize=True)
+        print(f"✓ {atom.name}  Dst: {dst}  ({n_thr} thr × {n_val} val)")
 
         print(f"✓ {atom.name}  Dst: {dst}  ({n_thr} thr × {n_val} val)")
 
@@ -685,18 +687,9 @@ def example_copy_atoms(output: Path):
 
     stsm_atoms = [SM90_U32x4_STSM_N, SM90_U16x8_STSM_T]
     for atom in stsm_atoms:
-        src = upcast(atom.src_layout_bits, element_bits)
-        dst = upcast(atom.dst_layout_bits, element_bits)
-
-        draw_tv_layout(src, output / f"{atom.name}.svg",
-                       title=f"{atom.name}  SrcLayout",
-                       colorize=True)
-
-        draw_copy_layout(src, dst, output / f"{atom.name}_copy.svg",
-                         title=f"{atom.name}  ({atom.ptx})",
-                         colorize=True)
-
-        print(f"✓ {atom.name}  Src: {src}")
+        draw_copy_atom(atom, element_bits=element_bits,
+                       filename=output / f"{atom.name}_copy.svg")
+        print(f"✓ {atom.name}  ({atom.ptx})")
 
     # =====================================================================
     # SM90 TMA — Tensor Memory Accelerator
@@ -933,6 +926,16 @@ def example_mma_atom(output: Path):
     for atom in [SM120_16x8x32_F32E4M3E4M3F32_TN]:
         _draw_mma_atom(atom, output)
 
+    # AMD CDNA3 MFMA — 64 threads (full wavefront)
+    print("\n  --- AMD CDNA3 MFMA (64 threads, wavefront) ---")
+    for atom in [CDNA3_32x32x16_F32F8F8_MFMA, CDNA3_16x16x32_F32F8F8_MFMA]:
+        _draw_mma_atom(atom, output)
+
+    # AMD CDNA3+ (MI350) — 64 threads
+    print("\n  --- AMD CDNA3+ (MI350) MFMA (64 threads) ---")
+    for atom in [CDNA3P_16x16x32_F32F16F16_MFMA]:
+        _draw_mma_atom(atom, output)
+
 
 # =============================================================================
 # Section 9: Slicing Examples
@@ -1114,54 +1117,66 @@ def example_algebra_operations(output: Path):
                 title=f"Product: logical_product({tile}, {grid})")
     print(f"✓ Logical product: {tile} × {grid}")
 
+    # Rank >= 3 results: flat_divide and flat_product produce rank-3 layouts
+    # that are now automatically rendered as multi-panel 2D grids
+    fd = flat_divide(matrix, Layout(2, 1))
+    draw_layout(fd, output / "algebra_flat_divide.svg",
+                title=f"flat_divide result (rank {rank(fd)})")
+    print(f"✓ flat_divide: shape={fd.shape}, rank={rank(fd)} → multi-panel")
+
+    fp = flat_product(Layout((2, 2), (1, 2)), Layout(4, 1))
+    draw_layout(fp, output / "algebra_flat_product.svg",
+                title=f"flat_product result (rank {rank(fp)})")
+    print(f"✓ flat_product: shape={fp.shape}, rank={rank(fp)} → multi-panel")
+
 
 # =============================================================================
 # Section 11: Tensor Slicing with Visualization
 # =============================================================================
 
 def example_tensor_slicing(output: Path):
-    """Tensor slicing - slicing tensors vs layouts.
+    """Tensor slicing - visualizing tensors directly.
 
     CuTe Reference: Tensor Operations
 
-    Tensors combine an offset with a layout. Slicing a tensor produces
-    a new tensor with adjusted offset.
+    Tensors combine an offset with a layout. draw_layout accepts Tensors
+    directly, showing offset-adjusted values in each cell.
     """
     print("\n" + "=" * 60)
-    print("11. Tensor Slicing")
+    print("11. Tensor Visualization")
     print("=" * 60)
 
-    # Create a tensor with a regular (non-swizzled) layout
+    # Create a tensor with a base offset — cells show offset-adjusted values
     layout = Layout((4, 8), (8, 1))
-    _ = Tensor(0, layout)  # Tensor for reference (used via layout below)
-    draw_layout(layout, output / "tensor_base.svg",
-                title=f"Tensor Base Layout: {layout}")
-    print(f"✓ Base tensor: offset=0, layout={layout}")
+    tensor = Tensor(layout, offset=0)
+    draw_layout(tensor, output / "tensor_base.svg")
+    print(f"✓ Base tensor (offset=0): {tensor}")
 
-    # Show tensor element access via the layout
-    print(f"  layout(0, 0) = {layout(0, 0)}")
-    print(f"  layout(2, 5) = {layout(2, 5)}")
-    print(f"  layout(3, 7) = {layout(3, 7)}")
+    # Non-zero offset shifts all values
+    tensor_16 = Tensor(layout, offset=16)
+    draw_layout(tensor_16, output / "tensor_offset16.svg")
+    print(f"✓ Offset tensor (offset=16): cell (0,0) = {tensor_16(0, 0)}")
 
-    # Demonstrate row/column patterns via layout
-    print(f"\n  Row 2 elements: [{', '.join(str(layout(2, j)) for j in range(8))}]")
-    print(f"  Col 5 elements: [{', '.join(str(layout(i, 5)) for i in range(4))}]")
+    # Side-by-side comparison using draw_composite
+    draw_composite([tensor, tensor_16],
+                   output / "tensor_offset_compare.svg",
+                   titles=["offset=0", "offset=16"],
+                   main_title="Tensor Offset Comparison")
+    print(f"✓ Tensor comparison: tensor_offset_compare.svg")
 
-    # Swizzled layout
+    # Swizzled tensor — swizzle applied to total linear offset
     sw = Swizzle(3, 0, 3)
-    sw_layout = compose(sw, layout)
-    draw_layout(sw_layout, output / "tensor_swizzled.svg",
-                title="Swizzled Tensor Layout")
-    print(f"\n✓ Swizzled tensor layout: compose(Swizzle(3,0,3), {layout})")
+    sw_layout = Layout((8, 8), (8, 1), swizzle=sw)
+    sw_tensor = Tensor(sw_layout, offset=0)
+    draw_layout(sw_tensor, output / "tensor_swizzled.svg")
+    print(f"✓ Swizzled tensor: {sw_tensor}")
 
-    # Show how swizzle changes the mapping
-    print(f"  sw_layout(0, 0) = {sw_layout(0, 0)}")
-    print(f"  sw_layout(2, 5) = {sw_layout(2, 5)}")
-    print(f"  sw_layout(3, 7) = {sw_layout(3, 7)}")
-
-    # Show swizzled row 3 elements
-    print(f"\n  Swizzled Row 3: [{', '.join(str(sw_layout(3, j)) for j in range(8))}]")
-    print(f"  (Compare to linear Row 3: [{', '.join(str(layout(3, j)) for j in range(8))}])")
+    # Tensor slicing: fixing coordinates adjusts the offset
+    row2 = tensor[2, :]
+    print(f"\n  tensor[2, :] = {row2}")
+    print(f"  tensor[2, :](0) = {row2(0)}, tensor(2, 0) = {tensor(2, 0)}")
+    draw_layout(row2, output / "tensor_slice_row2.svg",
+                title=f"tensor[2, :] = {row2}")
 
 
 # =============================================================================
