@@ -2927,6 +2927,16 @@ class Swizzle:
     Examples:
         Swizzle(3, 0, 3)  -- XOR bits [0,3) with bits [3,6)
         Swizzle(2, 1, 3)  -- XOR bits [1,3) with bits [4,6)
+
+    Visual example for Swizzle(3, 0, 3):
+        Input index:  0b___YYY___ZZZ   (Y=row bits [3,6), Z=col bits [0,3))
+        Output index: 0b___YYY___(ZZZ XOR YYY)
+
+        Concrete: index 19 = 0b010_011  (Y=010=2, Z=011=3)
+            -> 0b010_(011 XOR 010) = 0b010_001 = 17
+
+        This causes adjacent rows to access different memory banks,
+        avoiding shared memory bank conflicts.
     """
 
     def __init__(self, bits: int, base: int, shift: int):
