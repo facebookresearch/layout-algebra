@@ -572,7 +572,17 @@ def concat(t1: Any, t2: Any):
 
 
 def congruent(a: IntOrIntTuple, b: IntOrIntTuple) -> bool:
-    """Returns True if two layouts have the same rank and structure."""
+    """Returns True if two layouts have the same rank and structure.
+
+    Matches CuTe's congruent(): tests if two tuples have the same profile
+    (hierarchical rank division).  Congruent shapes can be element-wise
+    zipped (like zip_transform).
+
+    Examples:
+        congruent((2, 3), (4, 5))     -> True   (same rank)
+        congruent((2, 3), 6)          -> False  (int vs tuple)
+        congruent(((2, 3), 4), ((5, 6), 7))  -> True   (same nesting)
+    """
     if isinstance(a, int) and isinstance(b, int):
         return True
     if is_tuple(a) and is_tuple(b):
@@ -583,7 +593,16 @@ def congruent(a: IntOrIntTuple, b: IntOrIntTuple) -> bool:
 def compatible(a: IntOrIntTuple, b: IntOrIntTuple) -> bool:
     """Checks if shape A is compatible with shape B.
 
+    Matches CuTe's compatible(): A is compatible with B if size(A) == size(B)
+    and any coordinate into A can also be used as a coordinate into B.
+    This is a partial order: A <= B.
+
     A is compatible with B if A's modes can be grouped to match B's structure.
+
+    Examples:
+        compatible((2, 2, 3), (4, 3))  -> True   (2*2 groups into 4)
+        compatible(12, (2, 2, 3))      -> True   (scalar is compatible with any shape)
+        compatible((2, 2, 3), (5, 2))  -> False  (sizes don't match)
     """
     if size(a) != size(b):
         return False
