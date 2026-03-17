@@ -72,6 +72,7 @@ import numpy as np
 
 from .layouts import *
 from .tensor import Tensor
+from .atoms import CopyAtom
 
 __all__ = [
     # draw_* (save to file or display inline)
@@ -79,11 +80,13 @@ __all__ = [
     "draw_tv_layout", "draw_mma_layout",
     "draw_tiled_grid", "draw_combined_mma_grid",
     "draw_copy_layout", "draw_composite",
+    "draw_copy_atom",
     # show_* (return matplotlib Figure)
     "show_layout", "show_swizzle", "show_slice",
     "show_tv_layout", "show_mma_layout",
     "show_tiled_grid", "show_combined_mma_grid",
     "show_copy_layout", "show_composite",
+    "show_copy_atom",
     # Demo
     "demo",
 ]
@@ -2272,6 +2275,64 @@ def show_copy_layout(src_layout, dst_layout,
                               grid_shape=grid_shape, title=title,
                               colorize=colorize, thr_id_layout=thr_id_layout,
                               col_major=col_major)
+
+
+def draw_copy_atom(atom, element_bits: int = 16, filename=None,
+                   grid_shape=None, title=None,
+                   dpi: int = 150, colorize: bool = True,
+                   col_major: bool = True):
+    """Draw a CopyAtom by converting bit layouts to element coordinates.
+
+    Convenience wrapper around draw_copy_layout that handles the upcast
+    from bit coordinates to element coordinates automatically.
+
+    Args:
+        atom: CopyAtom with src_layout_bits and dst_layout_bits in bit coords
+        element_bits: Bit width of the data type (default 16 for fp16)
+        filename: Output path (.svg, .png, or .pdf). None for Jupyter inline.
+        grid_shape: Optional (rows, cols) for the output grids
+        title: Optional title (defaults to atom.name)
+        dpi: Resolution for raster formats
+        colorize: If True, use rainbow colors
+        col_major: If True (default), use column-major grid decomposition
+    """
+    src = upcast(atom.src_layout_bits, element_bits)
+    dst = upcast(atom.dst_layout_bits, element_bits)
+    draw_copy_layout(src, dst, filename=filename,
+                     grid_shape=grid_shape,
+                     title=title or f"{atom.name}  ({atom.ptx})",
+                     dpi=dpi, colorize=colorize,
+                     thr_id_layout=atom.thr_id,
+                     col_major=col_major)
+
+
+def show_copy_atom(atom, element_bits: int = 16,
+                   grid_shape=None, title=None,
+                   colorize: bool = True, col_major: bool = True):
+    """Display a CopyAtom inline (for Jupyter notebooks).
+
+    Convenience wrapper around show_copy_layout that handles the upcast
+    from bit coordinates to element coordinates automatically.
+
+    Args:
+        atom: CopyAtom with src_layout_bits and dst_layout_bits in bit coords
+        element_bits: Bit width of the data type (default 16 for fp16)
+        grid_shape: Optional (rows, cols) for the output grids
+        title: Optional title (defaults to atom.name)
+        colorize: If True, use rainbow colors
+        col_major: If True (default), use column-major grid decomposition
+
+    Returns:
+        matplotlib Figure
+    """
+    src = upcast(atom.src_layout_bits, element_bits)
+    dst = upcast(atom.dst_layout_bits, element_bits)
+    return show_copy_layout(src, dst,
+                            grid_shape=grid_shape,
+                            title=title or f"{atom.name}  ({atom.ptx})",
+                            colorize=colorize,
+                            thr_id_layout=atom.thr_id,
+                            col_major=col_major)
 
 
 def show_tv_layout(layout, title: Optional[str] = None,

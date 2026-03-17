@@ -61,6 +61,7 @@ try:
         _get_color_indices_2d,
         draw_composite,
         draw_copy_layout,
+        draw_copy_atom,
         draw_layout,
         draw_mma_layout,
         draw_slice,
@@ -68,6 +69,7 @@ try:
         draw_tiled_grid,
         draw_tv_layout,
         show_copy_layout,
+        show_copy_atom,
         show_composite,
         show_layout,
         show_mma_layout,
@@ -357,6 +359,25 @@ def test_show_copy_layout_returns_figure():
     src = Layout((4, 2), (2, 1))
     dst = Layout((4, 2), (1, 4))
     fig = show_copy_layout(src, dst, title="copy show")
+    try:
+        assert isinstance(fig, matplotlib.figure.Figure)
+    finally:
+        plt.close(fig)
+
+
+@requires_viz
+def test_draw_copy_atom_smoke():
+    """draw_copy_atom handles the upcast from bit coordinates automatically."""
+    from layout_algebra.atoms_nv import SM75_U32x1_LDSM_N
+    with tempfile.NamedTemporaryFile(suffix=".png") as f:
+        draw_copy_atom(SM75_U32x1_LDSM_N, element_bits=16, filename=f.name)
+
+
+@requires_viz
+def test_show_copy_atom_returns_figure():
+    """show_copy_atom returns a Figure for Jupyter display."""
+    from layout_algebra.atoms_nv import SM90_U32x4_STSM_N
+    fig = show_copy_atom(SM90_U32x4_STSM_N, element_bits=16)
     try:
         assert isinstance(fig, matplotlib.figure.Figure)
     finally:
