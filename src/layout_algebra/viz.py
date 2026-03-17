@@ -1127,6 +1127,25 @@ def draw_layout(layout, filename=None,
     _save_figure(fig, filename, dpi)
 
 
+def _infer_tv_grid_shape(layout, grid_shape=None, grid_rows=None, grid_cols=None):
+    """Infer (rows, cols) for a TV grid from layout cosize.
+
+    Accepts either a (rows, cols) tuple via grid_shape, or separate
+    grid_rows/grid_cols ints.  When dimensions are not fully specified,
+    falls back to a sqrt-based factorisation of cosize(layout).
+    """
+    if grid_shape is not None:
+        return grid_shape
+    if grid_rows is not None and grid_cols is not None:
+        return (grid_rows, grid_cols)
+    cosize_val = cosize(layout)
+    cols = int(np.sqrt(cosize_val))
+    while cols > 0 and cosize_val % cols != 0:
+        cols -= 1
+    rows = cosize_val // cols if cols > 0 else cosize_val
+    return (rows, cols)
+
+
 def _compute_tv_mapping(layout, grid_cols: Optional[int] = None,
                         grid_rows: Optional[int] = None,
                         thr_id_layout=None,
@@ -1258,15 +1277,8 @@ def _draw_tv_grid(ax, layout,
     num_t = size(mode(layout, 0))  # Number of threads
 
     # Determine grid dimensions
-    if grid_rows is not None and grid_cols is not None:
-        rows, cols = grid_rows, grid_cols
-    else:
-        # Infer from cosize
-        cosize_val = cosize(layout)
-        cols = int(np.sqrt(cosize_val))
-        while cols > 0 and cosize_val % cols != 0:
-            cols -= 1
-        rows = cosize_val // cols if cols > 0 else cosize_val
+    rows, cols = _infer_tv_grid_shape(layout, grid_rows=grid_rows,
+                                      grid_cols=grid_cols)
 
     # Build the inverse mapping with grid dimensions
     tv_map = _compute_tv_mapping(layout, grid_cols=cols, grid_rows=rows,
@@ -1332,15 +1344,7 @@ def draw_tv_layout(layout, filename=None,
         raise ValueError(f"TV layout must be rank 2, got rank {r}")
 
     # Determine grid dimensions
-    if grid_shape:
-        rows, cols = grid_shape
-    else:
-        # Infer from cosize (may not work well for sparse layouts)
-        cosize_val = cosize(layout)
-        cols = int(np.sqrt(cosize_val))
-        while cols > 0 and cosize_val % cols != 0:
-            cols -= 1
-        rows = cosize_val // cols if cols > 0 else cosize_val
+    rows, cols = _infer_tv_grid_shape(layout, grid_shape=grid_shape)
 
     if figsize is None:
         figsize = (cols * 0.6 + 1.5, rows * 0.5 + 1)
