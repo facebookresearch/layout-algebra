@@ -1028,42 +1028,15 @@ def _draw_hierarchical_grid(ax, layout,
                         fontsize=8, color='blue')
 
 
-def draw_layout(layout, filename=None,
-                title: Optional[str] = None,
-                dpi: int = 150,
-                figsize: Optional[Tuple[float, float]] = None,
-                colorize: bool = False,
-                color_layout: Optional[Layout] = None,
-                num_shades: int = 8,
-                flatten_hierarchical: bool = True,
-                label_hierarchy_levels: bool = False):
-    """Draw a layout and save to file.
-
-    Args:
-        layout: Layout object to visualize
-        filename: Output path (.svg, .png, or .pdf)
-        title: Optional title (defaults to layout repr)
-        dpi: Resolution for raster formats
-        figsize: Figure size in inches (auto-calculated if None)
-        colorize: If True, use rainbow colors; if False, use grayscale
-        color_layout: Optional layout controlling cell coloring. For displayed
-            rank-2 grids, this is evaluated in the same logical coordinate
-            space as the layout being drawn, so displayed cell (row, col) is
-            colored by color_layout(row_coord, col_coord). Examples:
-            - Layout((8,8), (1, 0)): color by row
-            - Layout((8,8), (0, 1)): color by column
-            - Layout(1, 0): uniform color
-            - None: color by cell value (default)
-        num_shades: Number of colors/shades in palette (default 8)
-        flatten_hierarchical: For hierarchical layouts, if True show flat grid with
-            offset values. If False, show explicit cell labels:
-              - row=... nested row coordinate
-              - col=... nested column coordinate
-              - offset=... resulting offset
-        label_hierarchy_levels: For hierarchical nested views, if True annotate
-            axes with each hierarchy level at block/tile granularity. Label
-            colors match the corresponding hierarchy boundary lines.
-    """
+def _build_layout_figure(layout,
+                         title: Optional[str] = None,
+                         figsize: Optional[Tuple[float, float]] = None,
+                         colorize: bool = False,
+                         color_layout: Optional[Layout] = None,
+                         num_shades: int = 8,
+                         flatten_hierarchical: bool = True,
+                         label_hierarchy_levels: bool = False):
+    """Build the layout figure used by draw_layout/show_layout."""
     # Check if this is a hierarchical layout (has nested tuple shapes)
     r = rank(layout)
     is_hierarchical = (r == 2 and
@@ -1107,6 +1080,50 @@ def draw_layout(layout, filename=None,
                    colorize=colorize, color_layout=color_layout,
                    color_indices=color_indices, num_shades=num_shades)
 
+    return fig
+
+
+def draw_layout(layout, filename=None,
+                title: Optional[str] = None,
+                dpi: int = 150,
+                figsize: Optional[Tuple[float, float]] = None,
+                colorize: bool = False,
+                color_layout: Optional[Layout] = None,
+                num_shades: int = 8,
+                flatten_hierarchical: bool = True,
+                label_hierarchy_levels: bool = False):
+    """Draw a layout and save to file.
+
+    Args:
+        layout: Layout object to visualize
+        filename: Output path (.svg, .png, or .pdf)
+        title: Optional title (defaults to layout repr)
+        dpi: Resolution for raster formats
+        figsize: Figure size in inches (auto-calculated if None)
+        colorize: If True, use rainbow colors; if False, use grayscale
+        color_layout: Optional layout controlling cell coloring. For displayed
+            rank-2 grids, this is evaluated in the same logical coordinate
+            space as the layout being drawn, so displayed cell (row, col) is
+            colored by color_layout(row_coord, col_coord). Examples:
+            - Layout((8,8), (1, 0)): color by row
+            - Layout((8,8), (0, 1)): color by column
+            - Layout(1, 0): uniform color
+            - None: color by cell value (default)
+        num_shades: Number of colors/shades in palette (default 8)
+        flatten_hierarchical: For hierarchical layouts, if True show flat grid with
+            offset values. If False, show explicit cell labels:
+              - row=... nested row coordinate
+              - col=... nested column coordinate
+              - offset=... resulting offset
+        label_hierarchy_levels: For hierarchical nested views, if True annotate
+            axes with each hierarchy level at block/tile granularity. Label
+            colors match the corresponding hierarchy boundary lines.
+    """
+    fig = _build_layout_figure(layout, title=title, figsize=figsize,
+                               colorize=colorize, color_layout=color_layout,
+                               num_shades=num_shades,
+                               flatten_hierarchical=flatten_hierarchical,
+                               label_hierarchy_levels=label_hierarchy_levels)
     _save_figure(fig, filename, dpi)
 
 
@@ -1803,18 +1820,9 @@ def show_layout(layout, title: Optional[str] = None,
     Returns:
         matplotlib Figure
     """
-    indices = _get_indices_2d(layout)
-    rows, cols = indices.shape
-
-    if figsize is None:
-        figsize = (cols * 0.5 + 1, rows * 0.5 + 1)
-
-    fig, ax = plt.subplots(figsize=figsize)
-    color_indices = _get_color_indices_2d(layout, color_layout)
-    _draw_grid(ax, indices, title=title or str(layout),
-               colorize=colorize, color_layout=color_layout,
-               color_indices=color_indices, num_shades=num_shades)
-    return fig
+    return _build_layout_figure(layout, title=title, figsize=figsize,
+                                colorize=colorize, color_layout=color_layout,
+                                num_shades=num_shades)
 
 
 def show_swizzle(base_layout, swizzle,
