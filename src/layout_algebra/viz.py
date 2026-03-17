@@ -1414,16 +1414,7 @@ def draw_mma_layout(layout_a, layout_b, layout_c, filename=None,
 
     # Color palette (matching cute-viz: 8 pastel colors)
     if colorize:
-        mma_colors = [
-            '#afafff',  # light blue
-            '#afffaf',  # light green
-            '#ffffaf',  # light yellow
-            '#ffafaf',  # light red
-            '#d2d2ff',  # pale blue
-            '#d2ffd2',  # pale green
-            '#ffffd2',  # pale yellow
-            '#ffd2d2',  # pale red
-        ]
+        mma_colors = _make_rainbow_palette(8)
     else:
         mma_colors = _make_grayscale_palette(8)
 
