@@ -53,7 +53,7 @@ import itertools
 from functools import lru_cache
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Set, Tuple
+from typing import Optional, Tuple
 
 import matplotlib
 # Use Agg (non-interactive) backend unless already set (e.g. by Jupyter)
@@ -350,14 +350,12 @@ def _setup_axes(ax, x_range: Tuple[float, float], y_range: Tuple[float, float],
 
 
 def _draw_grid(ax, indices: np.ndarray,
-               highlight: Optional[Set[int]] = None,
                highlight_mask: Optional[np.ndarray] = None,
                hierarchy_shapes: Optional[Tuple[object, object]] = None,
                cell_size: float = 1.0,
                show_labels: bool = True,
                title: Optional[str] = None,
                colorize: bool = False,
-               color_layout: Optional[Layout] = None,
                color_indices: Optional[np.ndarray] = None,
                num_shades: int = 8,
                label_color: str = 'blue',
@@ -367,7 +365,6 @@ def _draw_grid(ax, indices: np.ndarray,
     Args:
         ax: Matplotlib axis to draw on
         indices: 2D array of index values
-        highlight: Deprecated offset-based highlighting set
         highlight_mask: Boolean mask aligned with `indices`
         hierarchy_shapes: Optional `(row_shape, col_shape)` pair used to draw
             hierarchy boundary overlays on top of a flattened displayed grid
@@ -375,8 +372,6 @@ def _draw_grid(ax, indices: np.ndarray,
         show_labels: Whether to show row/column labels
         title: Optional title for the plot
         colorize: If True, use rainbow colors; if False, use grayscale
-        color_layout: Deprecated at this level; callers should usually pass
-            precomputed `color_indices` aligned with the displayed grid.
         color_indices: 2D array of per-cell color indices aligned with `indices`.
         num_shades: Number of colors/shades in palette (default 8)
     """
@@ -398,21 +393,14 @@ def _draw_grid(ax, indices: np.ndarray,
             idx = int(indices[i, j])
 
             # Determine highlight state
-            if highlight_mask is not None:
-                is_hl = bool(highlight_mask[i, j])
-            else:
-                is_hl = bool(highlight and idx in highlight)
+            is_hl = bool(highlight_mask[i, j]) if highlight_mask is not None else False
 
             # Determine base face color
             if color_indices is not None:
                 color_idx = int(color_indices[i, j]) % len(colors)
-            elif color_layout is None:
+            else:
                 # Default: color by cell value
                 color_idx = idx % len(colors)
-            else:
-                # Backward-compatible fallback for direct display-coordinate use
-                result = color_layout(i, j)
-                color_idx = _color_result_to_index(result) % len(colors)
 
             base_facecolor = colors[color_idx]
             final_facecolors[i, j] = HIGHLIGHT_COLOR if is_hl else base_facecolor
@@ -601,7 +589,7 @@ def draw_composite(panels: list, filename: str,
         else:
             grid = _prepare_offset_grid(layout, color_layout=color_layout)
             _draw_grid(ax, grid.indices, title=title,
-                       colorize=panel_colorize, color_layout=color_layout,
+                       colorize=panel_colorize,
                        color_indices=grid.color_indices,
                        num_shades=num_shades)
 
@@ -1157,7 +1145,7 @@ def _build_layout_figure(layout,
                                 num_shades=num_shades)
     else:
         _draw_grid(ax, grid.indices, title=title or str(layout),
-                   colorize=colorize, color_layout=color_layout,
+                   colorize=colorize,
                    color_indices=grid.color_indices, num_shades=num_shades)
 
     return fig
@@ -2019,7 +2007,7 @@ def _build_slice_figure(layout, slice_spec,
 
     fig, ax = plt.subplots(figsize=figsize)
     _draw_grid(ax, grid.indices, highlight_mask=grid.highlight_mask,
-               title=title, colorize=colorize, color_layout=color_layout,
+               title=title, colorize=colorize,
                color_indices=grid.color_indices, num_shades=num_shades)
     return fig
 
