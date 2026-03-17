@@ -642,6 +642,7 @@ def _draw_hierarchical_grid(ax, layout,
                             show_labels: bool = True,
                             title: Optional[str] = None,
                             colorize: bool = False,
+                            color_indices: Optional[np.ndarray] = None,
                             flatten_hierarchical: bool = True,
                             label_hierarchy_levels: bool = False,
                             num_shades: int = 8):
@@ -703,7 +704,10 @@ def _draw_hierarchical_grid(ax, layout,
     for i in range(rows):
         for j in range(cols):
             idx = int(indices[i, j])
-            color_idx = idx % len(colors)
+            if color_indices is not None:
+                color_idx = int(color_indices[i, j]) % len(colors)
+            else:
+                color_idx = idx % len(colors)
             facecolor = colors[color_idx]
             if flatten_hierarchical:
                 edgecolor = 'black'
@@ -887,7 +891,8 @@ def draw_layout(layout, filename=None,
 
     if is_hierarchical and not flatten_hierarchical:
         _draw_hierarchical_grid(ax, layout, title=title or str(layout),
-                                colorize=colorize, flatten_hierarchical=False,
+                                colorize=colorize, color_indices=color_indices,
+                                flatten_hierarchical=False,
                                 label_hierarchy_levels=label_hierarchy_levels,
                                 num_shades=num_shades)
     else:

@@ -39,7 +39,9 @@ from layout_algebra.layout_utils import tile_mma_grid
 try:
     import matplotlib.figure
     import matplotlib.pyplot as plt
+    import layout_algebra.viz as viz_mod
     from layout_algebra.viz import (
+        _draw_hierarchical_grid,
         _format_hierarchical_cell_lines,
         _format_nested_coord,
         _coord_levels,
@@ -248,6 +250,53 @@ def test_get_color_indices_2d_1d_layout_is_not_treated_as_uniform():
     color_layout = Layout(4, 1)
     color_indices = _get_color_indices_2d(layout, color_layout)
     assert color_indices.tolist() == [[0, 1, 2, 3]]
+
+
+def test_draw_layout_nested_passes_color_indices_to_hierarchical_renderer(monkeypatch):
+    layout = Layout(((2, 2), (2, 2)), ((1, 4), (2, 8)))
+    color_layout = Layout(layout.shape, ((1, 2), (0, 0)))
+    seen = {}
+
+    def fake_draw(ax, passed_layout, **kwargs):
+        seen["layout"] = passed_layout
+        seen["color_indices"] = kwargs.get("color_indices")
+
+    monkeypatch.setattr(viz_mod, "_draw_hierarchical_grid", fake_draw)
+    monkeypatch.setattr(viz_mod, "_save_figure", lambda fig, filename, dpi=150: plt.close(fig))
+
+    draw_layout(
+        layout,
+        filename="ignored.png",
+        flatten_hierarchical=False,
+        color_layout=color_layout,
+    )
+
+    assert seen["layout"] == layout
+    assert seen["color_indices"] is not None
+    assert seen["color_indices"].shape == (4, 4)
+
+
+@requires_viz
+def test_draw_hierarchical_grid_uses_supplied_color_indices():
+    layout = Layout(((2, 2), (2, 2)), ((1, 4), (2, 8)))
+    color_layout = Layout(layout.shape, ((1, 2), (0, 0)))
+    color_indices = _get_color_indices_2d(layout, color_layout)
+
+    fig, ax = plt.subplots()
+    try:
+        _draw_hierarchical_grid(
+            ax,
+            layout,
+            colorize=True,
+            color_indices=color_indices,
+            flatten_hierarchical=False,
+        )
+        facecolors = [patch.get_facecolor() for patch in ax.patches]
+        assert len(facecolors) == 16
+        assert facecolors[0] == facecolors[1] == facecolors[2] == facecolors[3]
+        assert facecolors[0] != facecolors[4]
+    finally:
+        plt.close(fig)
 
 
 @requires_viz
