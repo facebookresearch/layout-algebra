@@ -1891,6 +1891,91 @@ def shape_mod(shape: Any, modulus: int) -> Any:
     return fold_accumulate(shape, modulus, _scalar, _update)
 
 
+def _ceil_div(a: int, b: int) -> int:
+    """Ceiling division: smallest integer >= a/b."""
+    return (a + b - 1) // b
+
+
+def upcast(layout: "Layout", n: int) -> "Layout":
+    """Reinterpret a layout from a finer to a coarser coordinate space.
+
+    Mirrors CuTe's upcast<N>(layout).  Typically used to convert a layout
+    in bit coordinates to element coordinates by dividing by the element
+    width in bits.
+
+    For the stride-1 mode the shape shrinks by n (the elements are now n×
+    bigger, so there are fewer of them).  All strides are divided by n.
+
+    Examples:
+        # Bit layout → fp16 elements (÷16)
+        upcast(Layout((32, 32), (32, 1)), 16)
+        # => Layout((32, 2), (2, 1))
+
+        # Hierarchical value mode
+        upcast(Layout((32, (32, 4)), (32, (1, 1024))), 16)
+        # => Layout((32, (2, 4)), (2, (1, 64)))
+
+        # Transpose layout with sub-element innermost stride
+        upcast(Layout(((4, 8), (16, 2)), ((256, 16), (1, 128))), 16)
+        # => Layout(((4, 8), (1, 2)), ((16, 1), (1, 8)))
+    """
+    if n == 1:
+        return layout
+
+    def _upcast_leaf(s, d):
+        if d == 0:
+            return (s, d)
+        shape_divisor = _ceil_div(n, abs(d))
+        new_shape = _ceil_div(s, shape_divisor)
+        new_stride = (1 if d > 0 else -1) * _ceil_div(abs(d), n)
+        return (new_shape, new_stride)
+
+    def _apply(shape, stride):
+        if is_tuple(shape):
+            assert is_tuple(stride) and len(shape) == len(stride)
+            pairs = [_apply(s, d) for s, d in zip(shape, stride)]
+            new_s = tuple(p[0] for p in pairs)
+            new_d = tuple(p[1] for p in pairs)
+            return (new_s, new_d)
+        return _upcast_leaf(shape, stride)
+
+    new_shape, new_stride = _apply(layout.shape, layout.stride)
+    return Layout(new_shape, new_stride)
+
+
+def downcast(layout: "Layout", n: int) -> "Layout":
+    """Reinterpret a layout from a coarser to a finer coordinate space.
+
+    Mirrors CuTe's downcast<N>(layout).  The inverse of upcast: for the
+    stride-1 mode the shape grows by n, and all other strides are
+    multiplied by n.
+
+    Examples:
+        # Element layout → bit coordinates (×16)
+        downcast(Layout((32, 2), (2, 1)), 16)
+        # => Layout((32, 32), (32, 1))
+    """
+    if n == 1:
+        return layout
+
+    def _downcast_leaf(s, d):
+        if abs(d) == 1:
+            return (s * n, d)
+        return (s, d * n)
+
+    def _apply(shape, stride):
+        if is_tuple(shape):
+            assert is_tuple(stride) and len(shape) == len(stride)
+            pairs = [_apply(s, d) for s, d in zip(shape, stride)]
+            new_s = tuple(p[0] for p in pairs)
+            new_d = tuple(p[1] for p in pairs)
+            return (new_s, new_d)
+        return _downcast_leaf(shape, stride)
+
+    new_shape, new_stride = _apply(layout.shape, layout.stride)
+    return Layout(new_shape, new_stride)
+
+
 def _composition_1d(layout_a: "Layout", b_shape: int, b_stride: int) -> "Layout":
     """Compose layout A with a 1D layout (scalar shape and stride).
 
