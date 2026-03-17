@@ -634,8 +634,7 @@ def example_copy_atoms(output: Path):
       mma_traits_sm90_gmma.hpp — SM90 GMMA shared memory layouts
 
     Copy traits define Src and Dst layouts in *bit* coordinates.
-    After upcast to the element type (÷ element_bits), these become
-    element-level TV layouts that map (thread, value) → bit offset.
+    upcast(layout, element_bits) converts to element-level TV layouts.
 
     TMA atoms are single-threaded bulk transfers between global and shared
     memory.  Their interesting aspect is the shared memory swizzle patterns.
@@ -644,79 +643,58 @@ def example_copy_atoms(output: Path):
     print("7. Copy Atom Traits")
     print("=" * 60)
 
+    element_bits = 16  # fp16
+
     # =====================================================================
     # SM75 LDMATRIX — ldmatrix.sync.aligned.m8n8.shared.b16
-    # From copy_traits_sm75.hpp
     # =====================================================================
     print("\n  --- SM75 LDMATRIX (ldmatrix.sync.aligned) ---")
 
-    # SM75_U32x1_LDSM_N  — ldmatrix.x1 non-transpose
-    # DstLayout bits: (_32, _32) : (_32, _1)
-    # upcast<16>→fp16: (32, 2) : (2, 1)
-    ldsm_x1 = Layout((32, 2), (2, 1))
-    draw_tv_layout(ldsm_x1, output / "SM75_U32x1_LDSM_N.svg",
-                   title="SM75_U32x1_LDSM_N  (ldmatrix.x1)",
-                   colorize=True)
-    print(f"✓ SM75_U32x1_LDSM_N  DstLayout: {ldsm_x1}  (32 thr × 1 reg)")
+    ldsm_atoms = [
+        SM75_U32x1_LDSM_N,
+        SM75_U32x4_LDSM_N,
+        SM75_U16x2_LDSM_T,
+        SM75_U16x4_LDSM_T,
+        SM75_U16x8_LDSM_T,
+    ]
+    for atom in ldsm_atoms:
+        src = upcast(atom.src_layout_bits, element_bits)
+        dst = upcast(atom.dst_layout_bits, element_bits)
+        n_thr = size(atom.thr_id)
+        n_val = size(mode(dst, 1))
 
-    # SM75_U32x4_LDSM_N  — ldmatrix.x4 non-transpose
-    # DstLayout bits: (_32, (_32, _4)) : (_32, (_1, _1024))
-    # upcast<16>→fp16: (32, (2, 4)) : (2, (1, 64))
-    ldsm_x4 = Layout((32, (2, 4)), (2, (1, 64)))
-    draw_tv_layout(ldsm_x4, output / "SM75_U32x4_LDSM_N.svg",
-                   title="SM75_U32x4_LDSM_N  (ldmatrix.x4)",
-                   colorize=True)
-    print(f"✓ SM75_U32x4_LDSM_N  DstLayout: {ldsm_x4}  (32 thr × 4 reg)")
+        # Individual dst TV layout
+        draw_tv_layout(dst, output / f"{atom.name}.svg",
+                       title=f"{atom.name}  ({atom.ptx})",
+                       colorize=True)
 
-    # SM75_U16x2_LDSM_T  — ldmatrix.x1.trans
-    # DstLayout bits: ((4,8), (16,2)) : ((256,16), (1,128))
-    # upcast<16>→fp16: ((4,8), 2) : ((16,1), 8)
-    ldsm_x1t = Layout(((4, 8), 2), ((16, 1), 8))
-    draw_tv_layout(ldsm_x1t, output / "SM75_U16x2_LDSM_T.svg",
-                   title="SM75_U16x2_LDSM_T  (ldmatrix.x1.trans)",
-                   colorize=True)
-    print(f"✓ SM75_U16x2_LDSM_T  DstLayout: {ldsm_x1t}  (32 thr × 1 reg)")
+        # Side-by-side src/dst copy layout
+        draw_copy_layout(src, dst, output / f"{atom.name}_copy.svg",
+                         title=f"{atom.name}  ({atom.ptx})",
+                         colorize=True)
 
-    # SM75_U16x4_LDSM_T  — ldmatrix.x2.trans
-    # DstLayout bits: ((4,8), (16,2,2)) : ((256,16), (1,128,1024))
-    # upcast<16>→fp16: ((4,8), (2,2)) : ((16,1), (8,64))
-    ldsm_x2t = Layout(((4, 8), (2, 2)), ((16, 1), (8, 64)))
-    draw_tv_layout(ldsm_x2t, output / "SM75_U16x4_LDSM_T.svg",
-                   title="SM75_U16x4_LDSM_T  (ldmatrix.x2.trans)",
-                   colorize=True)
-    print(f"✓ SM75_U16x4_LDSM_T  DstLayout: {ldsm_x2t}  (32 thr × 2 reg)")
-
-    # SM75_U16x8_LDSM_T  — ldmatrix.x4.trans (= LdMatrix8x8x16bOp)
-    # DstLayout bits: ((4,8), (16,2,4)) : ((256,16), (1,128,1024))
-    # upcast<16>→fp16: ((4,8), (2,4)) : ((16,1), (8,64))
-    ldsm_x4t = Layout(((4, 8), (2, 4)), ((16, 1), (8, 64)))
-    draw_tv_layout(ldsm_x4t, output / "SM75_U16x8_LDSM_T.svg",
-                   title="SM75_U16x8_LDSM_T  (ldmatrix.x4.trans)",
-                   colorize=True)
-    print(f"✓ SM75_U16x8_LDSM_T  DstLayout: {ldsm_x4t}  (32 thr × 4 reg)")
+        print(f"✓ {atom.name}  Dst: {dst}  ({n_thr} thr × {n_val} val)")
 
     # =====================================================================
     # SM90 STMATRIX — stmatrix.sync.aligned.m8n8.shared.b16
-    # From copy_traits_sm90.hpp — inverse of SM75 LDMATRIX
-    # STSM SrcLayout = LDSM DstLayout,  STSM DstLayout = LDSM SrcLayout
+    # Inverse of SM75 LDMATRIX: STSM Src = LDSM Dst, STSM Dst = LDSM Src
     # =====================================================================
     print("\n  --- SM90 STMATRIX (stmatrix.sync.aligned) ---")
 
-    # SM90_U32x4_STSM_N  — stmatrix.x4 non-transpose
-    # SrcLayout = SM75_U32x4_LDSM_N::DstLayout → (32, (2,4)) : (2, (1,64))
-    stsm_x4_src = Layout((32, (2, 4)), (2, (1, 64)))
-    draw_tv_layout(stsm_x4_src, output / "SM90_U32x4_STSM_N.svg",
-                   title="SM90_U32x4_STSM_N  (stmatrix.x4) SrcLayout",
-                   colorize=True)
-    print(f"✓ SM90_U32x4_STSM_N  SrcLayout: {stsm_x4_src}")
+    stsm_atoms = [SM90_U32x4_STSM_N, SM90_U16x8_STSM_T]
+    for atom in stsm_atoms:
+        src = upcast(atom.src_layout_bits, element_bits)
+        dst = upcast(atom.dst_layout_bits, element_bits)
 
-    # SM90_U16x8_STSM_T  — stmatrix.x4.trans
-    # SrcLayout = SM75_U16x8_LDSM_T::DstLayout → ((4,8),(2,4)) : ((16,1),(8,64))
-    stsm_x4t_src = Layout(((4, 8), (2, 4)), ((16, 1), (8, 64)))
-    draw_tv_layout(stsm_x4t_src, output / "SM90_U16x8_STSM_T.svg",
-                   title="SM90_U16x8_STSM_T  (stmatrix.x4.trans) SrcLayout",
-                   colorize=True)
-    print(f"✓ SM90_U16x8_STSM_T  SrcLayout: {stsm_x4t_src}")
+        draw_tv_layout(src, output / f"{atom.name}.svg",
+                       title=f"{atom.name}  SrcLayout",
+                       colorize=True)
+
+        draw_copy_layout(src, dst, output / f"{atom.name}_copy.svg",
+                         title=f"{atom.name}  ({atom.ptx})",
+                         colorize=True)
+
+        print(f"✓ {atom.name}  Src: {src}")
 
     # =====================================================================
     # SM90 TMA — Tensor Memory Accelerator
