@@ -490,47 +490,14 @@ def _save_figure(fig, filename, dpi: int = 150):
 # Composite Figure API
 # =============================================================================
 
-def draw_composite(panels: list, filename: str,
-                   arrangement: str = "horizontal",
-                   titles: Optional[list] = None,
-                   main_title: Optional[str] = None,
-                   dpi: int = 150,
-                   panel_size: Tuple[float, float] = (4, 4),
-                   colorize: bool = False,
-                   tv_mode: bool = False):
-    """Draw multiple layouts in a single composite figure.
-
-    This allows composing sub-images into bigger figures, useful for:
-    - Copy atom visualizations (source and destination side by side)
-    - Before/after comparisons
-    - Multiple related layouts
-
-    For MMA visualizations, use the dedicated draw_mma_layout() function instead.
-
-    Args:
-        panels: List of Layout objects or (Layout, options_dict) tuples.
-                Options can include: colorize, color_layout, tv_mode, etc.
-        filename: Output path (.svg, .png, or .pdf)
-        arrangement: How to arrange panels:
-            - "horizontal": side by side (1 row)
-            - "vertical": stacked (1 column)
-            - "grid:RxC": R rows by C columns (e.g., "grid:2x2")
-        titles: Optional list of titles for each panel
-        main_title: Optional title for the entire figure
-        dpi: Resolution for raster formats
-        panel_size: Size of each panel in inches (width, height)
-        colorize: Default colorize setting for all panels
-        tv_mode: If True, render panels as TV layouts with T/V labels
-
-    Example:
-        # Side-by-side comparison
-        draw_composite(
-            [linear_layout, swizzled_layout],
-            "comparison.svg",
-            arrangement="horizontal",
-            titles=["Linear", "Swizzled"]
-        )
-    """
+def _build_composite_figure(panels: list,
+                            arrangement: str = "horizontal",
+                            titles: Optional[list] = None,
+                            main_title: Optional[str] = None,
+                            panel_size: Tuple[float, float] = (4, 4),
+                            colorize: bool = False,
+                            tv_mode: bool = False):
+    """Build the composite figure used by draw_composite/show_composite."""
     n = len(panels)
     if n == 0:
         raise ValueError("panels list cannot be empty")
@@ -601,6 +568,54 @@ def draw_composite(panels: list, filename: str,
         fig.suptitle(main_title, fontsize=12, fontweight='bold')
 
     plt.tight_layout()
+    return fig
+
+
+def draw_composite(panels: list, filename: str,
+                   arrangement: str = "horizontal",
+                   titles: Optional[list] = None,
+                   main_title: Optional[str] = None,
+                   dpi: int = 150,
+                   panel_size: Tuple[float, float] = (4, 4),
+                   colorize: bool = False,
+                   tv_mode: bool = False):
+    """Draw multiple layouts in a single composite figure.
+
+    This allows composing sub-images into bigger figures, useful for:
+    - Copy atom visualizations (source and destination side by side)
+    - Before/after comparisons
+    - Multiple related layouts
+
+    For MMA visualizations, use the dedicated draw_mma_layout() function instead.
+
+    Args:
+        panels: List of Layout objects or (Layout, options_dict) tuples.
+                Options can include: colorize, color_layout, tv_mode, etc.
+        filename: Output path (.svg, .png, or .pdf)
+        arrangement: How to arrange panels:
+            - "horizontal": side by side (1 row)
+            - "vertical": stacked (1 column)
+            - "grid:RxC": R rows by C columns (e.g., "grid:2x2")
+        titles: Optional list of titles for each panel
+        main_title: Optional title for the entire figure
+        dpi: Resolution for raster formats
+        panel_size: Size of each panel in inches (width, height)
+        colorize: Default colorize setting for all panels
+        tv_mode: If True, render panels as TV layouts with T/V labels
+
+    Example:
+        # Side-by-side comparison
+        draw_composite(
+            [linear_layout, swizzled_layout],
+            "comparison.svg",
+            arrangement="horizontal",
+            titles=["Linear", "Swizzled"]
+        )
+    """
+    fig = _build_composite_figure(panels, arrangement=arrangement,
+                                  titles=titles, main_title=main_title,
+                                  panel_size=panel_size, colorize=colorize,
+                                  tv_mode=tv_mode)
     _save_figure(fig, filename, dpi)
 
 
@@ -2229,6 +2244,33 @@ def show_slice(layout, slice_spec, title: Optional[str] = None,
     return _build_slice_figure(layout, slice_spec, title=title, figsize=figsize,
                                colorize=colorize, color_layout=color_layout,
                                num_shades=num_shades)
+
+
+def show_composite(panels: list,
+                   arrangement: str = "horizontal",
+                   titles: Optional[list] = None,
+                   main_title: Optional[str] = None,
+                   panel_size: Tuple[float, float] = (4, 4),
+                   colorize: bool = False,
+                   tv_mode: bool = False):
+    """Display a composite figure inline (for Jupyter notebooks).
+
+    Args:
+        panels: List of Layout objects or (Layout, options_dict) tuples.
+        arrangement: "horizontal", "vertical", or "grid:RxC"
+        titles: Optional list of titles for each panel
+        main_title: Optional title for the entire figure
+        panel_size: Size of each panel in inches (width, height)
+        colorize: Default colorize setting for all panels
+        tv_mode: If True, render panels as TV layouts with T/V labels
+
+    Returns:
+        matplotlib Figure
+    """
+    return _build_composite_figure(panels, arrangement=arrangement,
+                                   titles=titles, main_title=main_title,
+                                   panel_size=panel_size, colorize=colorize,
+                                   tv_mode=tv_mode)
 
 
 # =============================================================================

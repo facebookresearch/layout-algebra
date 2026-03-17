@@ -67,6 +67,7 @@ try:
         draw_tiled_grid,
         draw_tv_layout,
         show_copy_layout,
+        show_composite,
         show_layout,
         show_mma_layout,
         show_slice,
@@ -295,6 +296,18 @@ def test_show_slice_returns_figure():
     fig = show_slice(Layout((4, 8), (8, 1)), (2, None))
     try:
         assert isinstance(fig, matplotlib.figure.Figure)
+    finally:
+        plt.close(fig)
+
+
+@requires_viz
+def test_show_composite_returns_figure():
+    l1 = Layout((4, 4), (4, 1))
+    l2 = Layout((4, 4), (1, 4))
+    fig = show_composite([l1, l2], titles=["Row", "Col"])
+    try:
+        assert isinstance(fig, matplotlib.figure.Figure)
+        assert len(fig.axes) == 2
     finally:
         plt.close(fig)
 

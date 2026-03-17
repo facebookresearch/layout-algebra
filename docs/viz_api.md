@@ -409,6 +409,7 @@ and returns the matplotlib `Figure`:
 | `draw_copy_layout` | `show_copy_layout` |
 | `draw_combined_mma_grid` | `show_combined_mma_grid` |
 | `draw_slice` | `show_slice` |
+| `draw_composite` | `show_composite` |
 
 ```python
 from layout_algebra.viz import show_layout, show_swizzle, show_tv_layout
