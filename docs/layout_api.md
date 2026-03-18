@@ -118,6 +118,20 @@ image(broadcast)        # [0, 1, 2, 3, 4, 5, 6, 7]
 is_injective(broadcast) # False (stride-0 causes aliasing)
 ```
 
+## Functional Equivalence
+
+`functionally_equal(a, b)` returns True if two layouts compute the same
+offset for every flat index, even when they have different shapes or strides.
+This is useful for verifying that algebraic transformations like `coalesce()`
+and `flatten()` preserve behavior.
+
+```python
+L = Layout(((2, 2), (2, 4)), ((1, 4), (2, 8)))
+coalesce(L) == L                     # False (structurally different)
+functionally_equal(L, coalesce(L))   # True  (same mapping)
+functionally_equal(L, flatten(L))    # True
+```
+
 ## Layout Manipulation
 
 | Function | Description |

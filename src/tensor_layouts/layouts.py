@@ -111,6 +111,8 @@ __all__ = [
     "iter_layout",
     # Image and injectivity
     "image", "is_injective", "is_surjective", "is_bijective",
+    # Functional equivalence
+    "functionally_equal",
 ]
 
 
@@ -789,6 +791,31 @@ def is_bijective(layout: Layout) -> bool:
     """
     img = image(layout)
     return len(img) == size(layout) and len(img) == cosize(layout)
+
+
+# =============================================================================
+# Functional equivalence
+# =============================================================================
+
+def functionally_equal(a: Layout, b: Layout) -> bool:
+    """True if two layouts compute the same mapping for every flat index.
+
+    Layout.__eq__ checks structural equality (same shape and stride).
+    This function checks functional equality: whether a(i) == b(i)
+    for all i, regardless of internal representation.  Useful for
+    verifying that algebraic transformations like coalesce() and
+    flatten() preserve the layout's behavior.
+
+    Returns False if the layouts have different sizes.
+
+    Examples:
+        L = Layout(((2, 2), 2), ((1, 4), 2))
+        functionally_equal(L, coalesce(L))   # True
+        functionally_equal(L, flatten(L))    # True
+    """
+    if size(a) != size(b):
+        return False
+    return all(a(i) == b(i) for i in range(size(a)))
 
 
 # =============================================================================

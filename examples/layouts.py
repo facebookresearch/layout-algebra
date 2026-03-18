@@ -664,6 +664,42 @@ def example_image_injectivity():
 
 
 # =============================================================================
+# Section 16: Functional Equivalence
+# =============================================================================
+
+def example_functional_equivalence():
+    """Checking if two layouts compute the same mapping.
+
+    Layout.__eq__ checks structural equality (same shape and stride).
+    functionally_equal() checks whether two layouts produce the same
+    offset for every index, regardless of representation.
+    """
+    print("\n" + "=" * 60)
+    print("16. Functional Equivalence")
+    print("=" * 60)
+
+    # --- Coalescing preserves function ---
+    layout = Layout(((2, 2), (2, 4)), ((1, 4), (2, 8)))
+    coalesced = coalesce(layout)
+    print(f"  Original:   {layout}")
+    print(f"  Coalesced:  {coalesced}")
+    print(f"  Structurally equal: {layout == coalesced}")
+    print(f"  Functionally equal: {functionally_equal(layout, coalesced)}")
+
+    # --- Flattening also preserves function ---
+    flat = flatten(layout)
+    print(f"\n  Flattened:  {flat}")
+    print(f"  Functionally equal: {functionally_equal(layout, flat)}")
+
+    # --- Row-major vs column-major: same shape, different function ---
+    col = Layout((3, 4), (1, 3))
+    row = Layout((3, 4), (4, 1))
+    print(f"\n  Col-major: {col}")
+    print(f"  Row-major: {row}")
+    print(f"  Functionally equal: {functionally_equal(col, row)}")
+
+
+# =============================================================================
 # Main
 # =============================================================================
 
@@ -688,6 +724,7 @@ def main():
     example_tile()
     example_iteration()
     example_image_injectivity()
+    example_functional_equivalence()
 
     print("\n" + "=" * 70)
     print("All examples completed.")

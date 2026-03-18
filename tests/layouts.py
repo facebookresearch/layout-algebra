@@ -1897,6 +1897,56 @@ def test_image_injectivity_consistency():
         assert is_injective(l) == (len(img) == size(l))
 
 
+## functionally_equal
+
+
+def test_functionally_equal_identity():
+    """A layout is functionally equal to itself."""
+    layout = Layout((4, 8), (1, 4))
+    assert functionally_equal(layout, layout)
+
+
+def test_functionally_equal_coalesce():
+    """Coalescing preserves functional behavior."""
+    layout = Layout(((2, 2), (2, 4)), ((1, 4), (2, 8)))
+    assert functionally_equal(layout, coalesce(layout))
+
+
+def test_functionally_equal_flatten():
+    """Flattening preserves functional behavior."""
+    layout = Layout(((2, 2), (2, 4)), ((1, 4), (2, 8)))
+    assert functionally_equal(layout, flatten(layout))
+
+
+def test_functionally_equal_structurally_different():
+    """Different shapes/strides can produce the same mapping."""
+    a = Layout(((2, 2), 2), ((1, 4), 2))
+    b = coalesce(a)
+    assert a != b  # structurally different
+    assert functionally_equal(a, b)  # functionally same
+
+
+def test_functionally_equal_different_sizes():
+    """Different domain sizes are never functionally equal."""
+    assert not functionally_equal(Layout(4, 1), Layout(8, 1))
+
+
+def test_functionally_equal_broadcast():
+    """Broadcast layouts with same shape but different strides."""
+    a = Layout((4, 2), (0, 1))
+    b = Layout((4, 2), (0, 1))
+    assert functionally_equal(a, b)
+    c = Layout((4, 2), (1, 0))
+    assert not functionally_equal(a, c)
+
+
+def test_functionally_equal_row_col_major():
+    """Row-major and column-major are not functionally equal."""
+    col = Layout((3, 4), (1, 3))
+    row = Layout((3, 4), (4, 1))
+    assert not functionally_equal(col, row)
+
+
 if __name__ == "__main__":
     import subprocess
     import sys
