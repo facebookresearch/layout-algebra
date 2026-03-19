@@ -132,6 +132,19 @@ functionally_equal(L, coalesce(L))   # True  (same mapping)
 functionally_equal(L, flatten(L))    # True
 ```
 
+## Utility Functions
+
+Higher-level helpers like `make_ordered_layout`, `tile_to_shape`,
+`make_layout_like`, and `tile_mma_grid` live in `tensor_layouts.layout_utils`
+and should be imported explicitly:
+
+```python
+from tensor_layouts.layout_utils import make_ordered_layout
+
+col_major = make_ordered_layout((4, 8))           # (4,8):(1,4)
+row_major = make_ordered_layout((4, 8), (1, 0))   # (4,8):(8,1)
+```
+
 ## Layout Manipulation
 
 | Function | Description |
