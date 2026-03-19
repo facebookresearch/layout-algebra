@@ -308,3 +308,8 @@ compose(layout, tiler)  # Layout((3, 4), (8, 1)) — top-left 3x4 subblock
 
 A plain tuple of ints `(3, 4)` works as shorthand for
 `Tile(Layout(3, 1), Layout(4, 1))`.
+
+## GPU Analysis
+
+GPU-specific analysis functions live in `tensor_layouts.analysis`.
+See [`docs/analysis_api.md`](analysis_api.md).

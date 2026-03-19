@@ -36,6 +36,10 @@ See also:
 """
 
 from tensor_layouts import *
+from tensor_layouts.analysis import (
+    offset_table, bank_conflicts, coalescing_efficiency,
+    cycles, fixed_points, order, explain,
+)
 
 
 # =============================================================================
@@ -700,6 +704,94 @@ def example_functional_equivalence():
 
 
 # =============================================================================
+# Section 17: GPU Analysis
+# =============================================================================
+
+def example_analysis():
+    """Analyzing layouts for GPU performance.
+
+    GPU kernels live or die by memory access patterns.  Two critical
+    properties are:
+
+    1. Shared memory bank conflicts: shared memory has 32 banks, each
+       4 bytes wide.  When threads in a warp access different words in
+       the same bank, the accesses serialize (N-way conflict).
+
+    2. Global memory coalescing: the memory controller fetches 128-byte
+       cache lines.  When a warp's threads access scattered locations,
+       multiple cache lines are fetched, wasting bandwidth.
+
+    The analysis module quantifies both, and also provides permutation
+    analysis for understanding swizzle patterns.
+    """
+    print("\n" + "=" * 60)
+    print("17. GPU Analysis")
+    print("=" * 60)
+
+    # --- Bank conflict problem ---
+    # 8x8 row-major tile in shared memory.
+    # Reading a column means stride-8 access: thread t reads offset 8*t.
+    print("  Bank Conflicts")
+    print("  " + "-" * 40)
+    tile = Layout((8, 8), (8, 1))
+    col_access = Layout(8, 8)  # thread t -> offset 8*t (column access)
+    result = bank_conflicts(col_access, element_bytes=4)
+    print(f"  Column access (stride 8): {col_access}")
+    print(f"    conflict_free: {result['conflict_free']}")
+    print(f"    max_ways: {result['max_ways']} (threads serialize {result['max_ways']}x)")
+
+    # --- Swizzle fix ---
+    sw_tile = compose(Swizzle(3, 0, 3), tile)
+    sw_col = sw_tile(None, 0)  # slice column 0
+    result_sw = bank_conflicts(sw_col, element_bytes=4)
+    print(f"\n  After Swizzle(3,0,3):")
+    print(f"    Column 0 layout: {sw_col}")
+    print(f"    conflict_free: {result_sw['conflict_free']}")
+
+    # --- Who writes where? (offset_table) ---
+    print(f"\n  Offset Table (Aliasing)")
+    print("  " + "-" * 40)
+    broadcast = Layout((4, 2), (0, 1))
+    table = offset_table(broadcast)
+    print(f"  Broadcast layout {broadcast}:")
+    for offset, coords in sorted(table.items()):
+        print(f"    offset {offset} <- {coords}")
+
+    # --- Global memory coalescing ---
+    print(f"\n  Global Memory Coalescing")
+    print("  " + "-" * 40)
+    coalesced = Layout(32, 1)
+    r1 = coalescing_efficiency(coalesced, element_bytes=4)
+    print(f"  Stride-1 (fp32): {r1['transactions']} transaction, "
+          f"efficiency {r1['efficiency']:.0%}")
+
+    scattered = Layout(32, 64)
+    r2 = coalescing_efficiency(scattered)
+    print(f"  Stride-64 (fp16): {r2['transactions']} transactions, "
+          f"efficiency {r2['efficiency']:.1%}")
+
+    # --- Permutation structure ---
+    print(f"\n  Permutation Structure")
+    print("  " + "-" * 40)
+
+    # Row-major 3x2 is the transpose permutation
+    rm = Layout((3, 2), (2, 1))
+    print(f"  Row-major 3x2: {rm}")
+    print(f"    mapping: {[rm(i) for i in range(6)]}")
+    print(f"    cycles: {cycles(rm)}")
+    print(f"    fixed_points: {fixed_points(rm)}")
+    print(f"    order: {order(rm)} (apply 4 times to return to identity)")
+
+    # --- Step-by-step algebra trace ---
+    print(f"\n  Step-by-Step Algebra (explain)")
+    print("  " + "-" * 40)
+    print()
+    explain(logical_divide, Layout(16, 1), 4)
+    print()
+    explain(logical_product, Layout(4, 1), Layout(3, 1))
+
+
+# =============================================================================
 # Main
 # =============================================================================
 
@@ -725,6 +817,7 @@ def main():
     example_iteration()
     example_image_injectivity()
     example_functional_equivalence()
+    example_analysis()
 
     print("\n" + "=" * 70)
     print("All examples completed.")
