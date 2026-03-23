@@ -347,6 +347,24 @@ def test_complement_layouts():
     assert complement(Layout(4, 4), 32) == Layout((4, 2), (1, 16))
 
 
+def test_complement_rejects_negative_strides():
+    """complement rejects negative strides (matches CuTe/pycute assertions)."""
+    with pytest.raises(ValueError, match="negative stride"):
+        complement(Layout(4, -1))
+
+    with pytest.raises(ValueError, match="negative stride"):
+        complement(Layout((2, 3), (-1, 2)))
+
+
+def test_complement_rejects_zero_sized_shapes():
+    """complement rejects zero-sized shapes with nonzero strides."""
+    with pytest.raises(ValueError, match="zero-sized"):
+        complement(Layout(0, 1))
+
+    with pytest.raises(ValueError, match="zero-sized"):
+        complement(Layout((2, 0), (1, 2)))
+
+
 def test_coordinate_functions():
     L8 = Layout((2, 3), (1, 5))
     assert L8(0, 0) == 0

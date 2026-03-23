@@ -1457,6 +1457,16 @@ def complement(layout: Layout, cosize_bound: Any = None) -> Layout:
     current_stride = 1
 
     for stride, shape in modes:
+        # CuTe/pycute asserts current_stride <= stride * shape (injectivity).
+        # Negative strides or zero-sized shapes violate this invariant.
+        if stride < 0:
+            raise ValueError(
+                f"complement: negative stride {stride} is not supported"
+            )
+        if shape == 0:
+            raise ValueError(
+                f"complement: zero-sized shape is not supported"
+            )
         gap_size, next_stride = _step_mode(current_stride, stride, shape)
         if gap_size > 1:
             result_shapes.append(gap_size)
