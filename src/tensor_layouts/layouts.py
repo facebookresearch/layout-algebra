@@ -1837,6 +1837,15 @@ def crd2offset(coord, shape, stride) -> int:
         return offset
 
     # Case 3: nD coordinate mapping (coord tuple -> offset)
+    if not is_tuple(coord):
+        raise TypeError(
+            f"Coordinate must be int or tuple, got {type(coord).__name__}"
+        )
+    if len(coord) != len(shape):
+        raise ValueError(
+            f"Coordinate rank {len(coord)} does not match "
+            f"layout rank {len(shape)}"
+        )
     offset = 0
     for c, s, d in zip(coord, shape, stride):
         if c is None:

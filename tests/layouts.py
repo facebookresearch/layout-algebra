@@ -375,6 +375,28 @@ def test_coordinate_functions():
     assert L10(9) == 103
 
 
+def test_coordinate_validation():
+    """Layout.__call__ rejects invalid coordinate shapes (matches CuTe/pycute)."""
+    L = Layout((4, 8), (1, 4))
+
+    # Empty coords on a non-scalar layout
+    with pytest.raises(ValueError, match="rank"):
+        L()
+
+    # Over-rank coords (3 coords for rank-2 layout)
+    with pytest.raises(ValueError, match="rank"):
+        L(1, 2, 3)
+
+    # List coords (not a tuple or int)
+    with pytest.raises(TypeError, match="int or tuple"):
+        L([1, 2])
+
+    # Valid cases still work
+    assert L(1) == 1          # flat index
+    assert L(1, 2) == 9       # tuple coord via *args
+    assert L((1, 2)) == 9     # tuple coord via single arg
+
+
 def test_idx2crd_crd2flat_crd2offset():
     shape = (3, (2, 3))
     # idx to hcoords
