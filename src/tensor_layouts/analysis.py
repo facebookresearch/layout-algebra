@@ -196,16 +196,18 @@ def coalescing_efficiency(layout: Layout, *, warp_size: int = 32,
     """
     n = min(size(layout), warp_size)
 
-    # Find which cache lines are touched
+    # Find which cache lines are touched and count unique offsets
     cache_lines = set()
+    unique_offsets = set()
     for t in range(n):
         offset = layout(t)
+        unique_offsets.add(offset)
         byte_addr = offset * element_bytes
         cache_line = byte_addr // cache_line_bytes
         cache_lines.add(cache_line)
 
     transactions = len(cache_lines)
-    useful_bytes = n * element_bytes
+    useful_bytes = len(unique_offsets) * element_bytes
     transferred_bytes = transactions * cache_line_bytes
     efficiency = useful_bytes / transferred_bytes if transferred_bytes > 0 else 0.0
 

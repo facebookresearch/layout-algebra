@@ -152,9 +152,11 @@ def test_coalescing_large_stride():
 
 
 def test_coalescing_broadcast():
-    """All threads access same element: single transaction."""
+    """All threads access same element: single transaction, minimal useful bytes."""
     result = coalescing_efficiency(Layout(32, 0))
     assert result['transactions'] == 1
+    # Only 1 unique offset: 1 * 2 bytes useful out of 128 transferred
+    assert result['efficiency'] == pytest.approx(2.0 / 128)
 
 
 ## cycles
