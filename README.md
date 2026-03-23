@@ -128,10 +128,13 @@ gallery of layout, swizzle, MMA atom, and tiled MMA visualizations.
 
 ## Documentation
 
+- Example scripts assume `tensor-layouts` is installed.
+  From a repo checkout, run `pip install -e .` first, or `pip install -e ".[viz]"`
+  for visualization examples.
 - [Layout Algebra API](https://github.com/facebookresearch/tensor-layouts/blob/main/docs/layout_api.md) — construction, querying, compose, complement, divide, product
 - [Visualization API](https://github.com/facebookresearch/tensor-layouts/blob/main/docs/viz_api.md) — draw_layout, draw_swizzle, draw_mma_layout, and more
-- [Layout Examples](https://github.com/facebookresearch/tensor-layouts/blob/main/examples/layouts.py) — runnable script covering the full algebra (run from source checkout with `PYTHONPATH=src python3 examples/layouts.py`)
-- [Visualization Examples](https://github.com/facebookresearch/tensor-layouts/blob/main/examples/viz.py) — runnable script generating all visualization types (run from source checkout with `PYTHONPATH=src python3 examples/viz.py`)
+- [Layout Examples](https://github.com/facebookresearch/tensor-layouts/blob/main/examples/layouts.py) — runnable script covering the full algebra (`python3 examples/layouts.py`)
+- [Visualization Examples](https://github.com/facebookresearch/tensor-layouts/blob/main/examples/viz.py) — runnable script generating all visualization types (`python3 examples/viz.py`)
 - [Visualization Notebook](https://github.com/facebookresearch/tensor-layouts/blob/main/examples/viz.ipynb) — Jupyter gallery
 
 ## Testing

@@ -9,10 +9,11 @@ For runnable examples see [`examples/viz.py`](../examples/viz.py)
 and the Jupyter notebook [`examples/viz.ipynb`](../examples/viz.ipynb).
 For the core layout algebra see [`docs/layout_api.md`](layout_api.md).
 
-From a source checkout, run the example script with:
+From a repo checkout, install the package first and then run the example script:
 
 ```bash
-PYTHONPATH=src python3 examples/viz.py
+pip install -e ".[viz]"
+python3 examples/viz.py
 ```
 
 ## Output and Display

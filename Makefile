@@ -14,7 +14,7 @@ test:
 	python -m pytest tests/ -v
 
 docs:
-	PYTHONPATH=src python3 docs/generate_figures.py
+	python3 docs/generate_figures.py
 
 lint:
 	ruff check src/ tests/ examples/

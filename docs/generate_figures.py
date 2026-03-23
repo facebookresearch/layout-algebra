@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Regenerate all PNG figures used in the documentation.
 
-Run from the repo root:
-    PYTHONPATH=src python3 docs/generate_figures.py
-Or:
+Run from the repo root after installing visualization dependencies:
+    pip install -e ".[viz]"
+    python3 docs/generate_figures.py
+Or, after the same install step:
     make docs
 """
 

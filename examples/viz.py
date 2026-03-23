@@ -26,10 +26,8 @@
 This file demonstrates the visualization capabilities of the layouts library,
 following examples from NVIDIA's CuTe (CUDA Templates) documentation.
 
-Run this script to generate all visualizations from a source checkout:
-    PYTHONPATH=src python3 examples/viz.py
-
-or after installing the package in editable mode:
+Run this script after installing the package:
+    pip install -e ".[viz]"
     python3 examples/viz.py
 
 Output will be saved to ./examples_output/ directory.
@@ -40,8 +38,8 @@ Reference: https://github.com/NVIDIA/cutlass/blob/main/media/docs/cute/
 from pathlib import Path
 import sys
 
-# Allow running this example script directly from a source checkout without
-# requiring `pip install -e .` first.
+# Prefer the local repo sources when running this script from a checkout.
+# An installed `tensor-layouts` distribution is still required for package metadata.
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = REPO_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
