@@ -870,18 +870,32 @@ def explain(fn, *args):
         if isinstance(B, int):
             B = Layout(B)
         lines.append(f'logical_product({A}, {B})')
-        lines.append(f'  = Layout(A, compose(complement(A, size(A)*size(B)), B))')
-        lines.append(f'')
-        lines.append(f'  A = {A}')
-        lines.append(f'  B = {B}')
-        bound = size(A) * size(B)
-        lines.append(f'  size(A) * size(B) = {bound}')
-        comp = complement(A, bound)
-        lines.append(f'  complement(A, {bound}) = {comp}')
-        comp_b = compose(comp, B)
-        lines.append(f'  compose(complement, B) = {comp_b}')
-        result = Layout(A, comp_b)
-        lines.append(f'  Layout(A, {comp_b}) = {result}')
+
+        if is_layout(B):
+            lines.append(f'  = Layout(A, compose(complement(A, size(A)*size(B)), B))')
+            lines.append(f'')
+            lines.append(f'  A = {A}')
+            lines.append(f'  B = {B}')
+            bound = size(A) * size(B)
+            lines.append(f'  size(A) * size(B) = {bound}')
+            comp = complement(A, bound)
+            lines.append(f'  complement(A, {bound}) = {comp}')
+            comp_b = compose(comp, B)
+            lines.append(f'  compose(complement, B) = {comp_b}')
+            result = Layout(A, comp_b)
+            lines.append(f'  Layout(A, {comp_b}) = {result}')
+        else:
+            # Tuple tiler: mode-by-mode decomposition
+            lines.append(f'  For tuple tilers, applies logical_product mode-by-mode.')
+            lines.append(f'')
+            lines.append(f'  A = {A}')
+            lines.append(f'  B = {B}')
+            for i in range(len(B)):
+                mi = mode(A, i)
+                bi = B[i]
+                ri = logical_product(mi, bi)
+                lines.append(f'  mode {i}: logical_product({mi}, {bi}) = {ri}')
+
         lines.append(f'')
         actual = logical_product(A, B)
         lines.append(f'  result = {actual}')

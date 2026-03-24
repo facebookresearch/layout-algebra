@@ -562,6 +562,16 @@ def test_explain_logical_product():
     assert '(4, 3) : (1, 4)' in text
 
 
+def test_explain_logical_product_tuple_tiler():
+    """explain handles logical_product with tuple tiler without crashing."""
+    text = explain(logical_product, Layout((4, 4), (1, 4)), (2, 2))
+    assert 'logical_product' in text
+    assert 'mode 0' in text
+    assert 'mode 1' in text
+    expected = logical_product(Layout((4, 4), (1, 4)), (2, 2))
+    assert str(expected) in text
+
+
 def test_explain_complement():
     """explain shows complement with image and codomain."""
     text = explain(complement, Layout(4, 2), 16)
