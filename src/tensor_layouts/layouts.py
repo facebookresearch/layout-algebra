@@ -411,15 +411,24 @@ class Layout:
         return hash((self.shape, self.stride, swizzle_hash))
 
     def __repr__(self):
+        """Return an eval-safe constructor string: Layout((4, 2), (1, 4))."""
+        if self._swizzle is not None:
+            return (
+                f"Layout({self._shape!r}, {self._stride!r}, "
+                f"swizzle={self._swizzle!r})"
+            )
+        return f"Layout({self._shape!r}, {self._stride!r})"
+
+    def __str__(self):
+        """Return human-readable CuTe notation: (4, 2) : (1, 4)."""
         def fmt(x):
-            """Format shape/stride: int as-is, tuple with parens."""
             if isinstance(x, int):
                 return str(x)
             return repr(x)
-        base_repr = f"{fmt(self._shape)} : {fmt(self._stride)}"
+        base = f"{fmt(self._shape)} : {fmt(self._stride)}"
         if self._swizzle is not None:
-            return f"({self._swizzle}) o ({base_repr})"
-        return base_repr
+            return f"({self._swizzle}) o ({base})"
+        return base
 
     @property
     def shape(self) -> IntOrIntTuple:

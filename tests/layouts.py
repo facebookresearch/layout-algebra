@@ -1087,7 +1087,74 @@ def test_safe_div():
 def test_tile_repr():
     tiler = Tile(Layout(3, 4), Layout(8, 2))
     r = repr(tiler)
-    assert r == "Tile(3 : 4, 8 : 2)"
+    assert r == "Tile(Layout(3, 4), Layout(8, 2))"
+
+
+## Layout.__repr__ and __str__
+
+
+def test_layout_repr_scalar():
+    """repr() of a 1D layout returns an eval-safe constructor string."""
+    L = Layout(8, 2)
+    assert repr(L) == "Layout(8, 2)"
+
+
+def test_layout_repr_tuple():
+    """repr() of a multi-dimensional layout returns an eval-safe constructor string."""
+    L = Layout((4, 8), (1, 4))
+    assert repr(L) == "Layout((4, 8), (1, 4))"
+
+
+def test_layout_repr_hierarchical():
+    """repr() of a hierarchical layout returns an eval-safe constructor string."""
+    L = Layout(((2, 3), (2, 4)), ((1, 6), (2, 12)))
+    assert repr(L) == "Layout(((2, 3), (2, 4)), ((1, 6), (2, 12)))"
+
+
+def test_layout_repr_swizzled():
+    """repr() of a swizzled layout includes the swizzle keyword argument."""
+    sw = Swizzle(3, 0, 3)
+    L = compose(sw, Layout((8, 8), (8, 1)))
+    r = repr(L)
+    assert r == "Layout((8, 8), (8, 1), swizzle=Swizzle(3, 0, 3))"
+
+
+def test_layout_repr_eval_roundtrip():
+    """eval(repr(L)) reconstructs an equal Layout (the gold standard for repr)."""
+    cases = [
+        Layout(8, 2),
+        Layout((4, 8), (1, 4)),
+        Layout((4, 8), (0, 1)),
+        Layout(((2, 3), (2, 4)), ((1, 6), (2, 12))),
+    ]
+    for L in cases:
+        reconstructed = eval(repr(L))  # noqa: S307
+        assert reconstructed == L, f"Roundtrip failed for {repr(L)}"
+
+
+def test_layout_repr_eval_roundtrip_swizzled():
+    """eval(repr(L)) works for swizzled layouts too."""
+    L = compose(Swizzle(3, 0, 3), Layout((8, 8), (8, 1)))
+    reconstructed = eval(repr(L))  # noqa: S307
+    assert reconstructed == L
+
+
+def test_layout_str_scalar():
+    """str() returns the human-readable CuTe notation."""
+    L = Layout(8, 2)
+    assert str(L) == "8 : 2"
+
+
+def test_layout_str_tuple():
+    """str() returns the human-readable CuTe notation for multi-dim layouts."""
+    L = Layout((4, 8), (1, 4))
+    assert str(L) == "(4, 8) : (1, 4)"
+
+
+def test_layout_str_swizzled():
+    """str() returns the CuTe composition notation for swizzled layouts."""
+    L = compose(Swizzle(3, 0, 3), Layout((8, 8), (8, 1)))
+    assert str(L) == "(Swizzle(3, 0, 3)) o ((8, 8) : (8, 1))"
 
 
 ## Layout.__hash__
