@@ -44,9 +44,14 @@ offset_table(Layout((4, 2), (0, 1)))
 #  1: [(0,1), (1,1), (2,1), (3,1)]}
 ```
 
-## bank_conflicts(layout, *, num_banks=32, element_bytes=2, bank_width_bytes=4)
+## bank_conflicts(layout, *, num_banks=32, element_bytes=2, bank_width_bytes=4, group_size=32)
 
 Analyze shared memory bank conflicts for a thread-to-offset layout.
+
+Only the first `group_size` threads are analyzed, matching the hardware
+issue granularity (warp on NVIDIA, wavefront on AMD).  This avoids
+overstating conflicts when the layout spans multiple warps.  Pass
+`group_size=64` for AMD wavefronts.
 
 Consider an 8x8 row-major tile in shared memory.  Reading rows is fast
 (stride 1 hits consecutive banks), but reading a column means stride-8
@@ -90,12 +95,12 @@ strides 64 elements apart, each access triggers a separate transaction:
 # Perfectly coalesced: 32 threads, stride 1, fp32
 result = coalescing_efficiency(Layout(32, 1), element_bytes=4)
 result['transactions']  # 1
-result['efficiency']    # 1.0  (128 useful bytes / 128 transferred)
+result['efficiency']    # 1.0  (128 unique useful bytes / 128 transferred)
 
 # Worst case: each thread hits a separate cache line
 result = coalescing_efficiency(Layout(32, 64))
 result['transactions']  # 32
-result['efficiency']    # 0.016  (64 useful bytes / 4096 transferred)
+result['efficiency']    # 0.016  (64 unique useful bytes / 4096 transferred)
 ```
 
 Returns a dict:
@@ -103,7 +108,7 @@ Returns a dict:
 | Key | Type | Description |
 |-----|------|-------------|
 | `transactions` | int | Number of cache line fetches needed |
-| `efficiency` | float | Useful bytes / transferred bytes (1.0 = perfect) |
+| `efficiency` | float | Unique useful bytes / transferred bytes (1.0 = perfect) |
 | `cache_lines` | list | Sorted cache line indices touched |
 
 ## Permutation Analysis
