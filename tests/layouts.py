@@ -201,6 +201,31 @@ def test_layout_basic():
     Layout((6, 1, 12, 2, 2), (2, 0, 12, 144, 1))  # Complex layout
 
 
+def test_layout_type_validation():
+    """Layout rejects invalid shape/stride types with clear messages."""
+    # Strings rejected
+    with pytest.raises(TypeError, match="stride.*str"):
+        Layout((4, 2), "row")
+    with pytest.raises(TypeError, match="shape.*str"):
+        Layout("abc")
+
+    # Floats rejected
+    with pytest.raises(TypeError, match="stride.*float"):
+        Layout((4, 2), 1.5)
+    with pytest.raises(TypeError, match="shape.*float"):
+        Layout(3.14)
+
+    # None rejected
+    with pytest.raises(TypeError, match="shape.*NoneType"):
+        Layout(None)
+
+    # Valid constructions still work
+    Layout((4, 2), (1, 4))
+    Layout(((2, 2), 4), ((1, 2), 4))
+    Layout(8)
+    Layout([4, 2])  # lists are fine
+
+
 def test_layout_rank_size_cosize():
     L5 = Layout((64, 32), (1, 128))
     assert rank(L5) == 2

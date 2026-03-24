@@ -301,6 +301,23 @@ def normalize(x: Any) -> IntOrIntTuple:
 #
 
 
+def _validate_shape_type(x, name: str) -> None:
+    """Validate that *x* is a valid shape or stride: int or nested tuple of ints.
+
+    Raises TypeError with a clear message naming the offending parameter
+    (``name`` should be ``"shape"`` or ``"stride"``).
+    """
+    if is_int(x):
+        return
+    if isinstance(x, (list, tuple)):
+        for elem in x:
+            _validate_shape_type(elem, name)
+        return
+    raise TypeError(
+        f"Layout {name} must be int or tuple of ints, got {type(x).__name__}"
+    )
+
+
 class Layout:
     """A function from logical coordinates to memory offsets: offset = sum(coord_i * stride_i).
 
@@ -355,11 +372,14 @@ class Layout:
 
         elif len(args) == 1:
             shape = args[0]
+            _validate_shape_type(shape, "shape")
             self._shape = normalize(shape)
             self._stride = compute_col_major_strides(self._shape)
 
         elif len(args) == 2:
             shape, stride = args
+            _validate_shape_type(shape, "shape")
+            _validate_shape_type(stride, "stride")
             self._shape = normalize(shape)
             self._stride = normalize(stride)
 
