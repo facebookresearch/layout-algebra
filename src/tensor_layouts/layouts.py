@@ -1793,6 +1793,8 @@ def idx2crd(coord: Any, shape: Any) -> Any:
     """Convert index into a hierarchical coordinate."""
 
     if isinstance(shape, int):
+        if isinstance(coord, int):
+            return coord % shape
         return coord
 
     # Case: Input is a single integer index for this entire sub-hierarchy

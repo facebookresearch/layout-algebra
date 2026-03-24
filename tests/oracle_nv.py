@@ -1492,6 +1492,21 @@ def test_product_each_matches_pycute_size():
         assert result == expected, f"product_each({shape}) = {result} != {expected}"
 
 
+
+@pytest.mark.skipif(pycute is None, reason="pycute not installed")
+def test_oracle_idx2crd():
+    shapes = [
+        4,
+        (4, 2),
+        (2, (2, 2)),
+        ((2, 2), (2, 2)),
+    ]
+    indices = [0, 1, 3, 5, 10, 16]
+    for s in shapes:
+        for idx in indices:
+            assert idx2crd(idx, s) == pycute.idx2crd(idx, s)
+
+
 if __name__ == "__main__":
     import traceback
     test_funcs = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
