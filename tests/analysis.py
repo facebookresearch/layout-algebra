@@ -391,6 +391,35 @@ def test_contiguity_broadcast():
     assert contiguity(Layout(8, 0)) == 1
 
 
+def test_mode_contiguity_col_major():
+    """Column-major: mode 0 contiguous, mode 1 strided."""
+    assert mode_contiguity(Layout((4, 8), (1, 4))) == [4, 1]
+
+
+def test_mode_contiguity_row_major():
+    """Row-major: mode 0 strided, mode 1 contiguous."""
+    assert mode_contiguity(Layout((4, 8), (8, 1))) == [1, 8]
+
+
+def test_mode_contiguity_gapped():
+    """Mode 0 contiguous, mode 1 has stride > mode 0 size."""
+    assert mode_contiguity(Layout((4, 8), (1, 8))) == [4, 1]
+
+
+def test_slice_contiguity_row_major():
+    """Row-major: fixing row gives contiguous column access."""
+    L = Layout((4, 8), (8, 1))
+    assert slice_contiguity(L, (0, None)) == 8
+    assert slice_contiguity(L, (None, 0)) == 1
+
+
+def test_slice_contiguity_col_major():
+    """Column-major: fixing column gives contiguous row access."""
+    L = Layout((4, 8), (1, 4))
+    assert slice_contiguity(L, (None, 0)) == 4
+    assert slice_contiguity(L, (0, None)) == 1
+
+
 ## atom_summary
 
 

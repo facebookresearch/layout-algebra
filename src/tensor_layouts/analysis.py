@@ -47,6 +47,8 @@ __all__ = [
     "fixed_points",
     "order",
     "contiguity",
+    "mode_contiguity",
+    "slice_contiguity",
     "atom_summary",
     "explain",
 ]
@@ -603,6 +605,70 @@ def contiguity(layout: Layout) -> int:
     """
     layout = as_layout(layout)
     return max_common_vector(layout, Layout(size(layout)))
+
+
+def mode_contiguity(layout: Layout) -> list:
+    """Return contiguous vector width for each top-level mode.
+
+    For each mode, fixes all other modes to coordinate 0 and measures
+    the contiguity of that single-mode slice.  This tells you the
+    vectorizable width along each axis independently.
+
+    Args:
+        layout: Layout to analyze (must be rank >= 1).
+
+    Returns:
+        List of ints, one per top-level mode.
+
+    Examples:
+        mode_contiguity(Layout((4, 8), (1, 8)))    # [4, 1] (mode 0 contiguous, mode 1 strided)
+        mode_contiguity(Layout((4, 8), (1, 4)))     # [4, 1] (mode 0 contiguous, mode 1 stride-4)
+        mode_contiguity(Layout((4, 8), (8, 1)))     # [1, 8] (row-major: mode 1 contiguous)
+    """
+    layout = as_layout(layout)
+    r = rank(layout)
+    if r == 0:
+        return [1]
+
+    result = []
+    for i in range(r):
+        mode_layout = mode(layout, i)
+        if is_int(mode_layout):
+            # Scalar mode (size 1) — trivially contiguous
+            result.append(1)
+        else:
+            result.append(contiguity(mode_layout))
+    return result
+
+
+def slice_contiguity(layout: Layout, coord) -> int:
+    """Contiguity of a layout after fixing some coordinates.
+
+    Slices the layout by ``coord`` (using None for free dimensions)
+    and returns the contiguity of the resulting sublayout.  This answers
+    "given these fixed coordinates, what's the vectorizable width of
+    the remaining free dimensions?"
+
+    Args:
+        layout: Layout to slice.
+        coord: Coordinate tuple with None for free dims and ints for
+            fixed dims. E.g. ``(None, 3)`` fixes mode 1 to 3.
+
+    Returns:
+        Contiguous vector width of the sliced sublayout.
+
+    Examples:
+        # Fix row, measure column contiguity
+        slice_contiguity(Layout((4, 8), (8, 1)), (0, None))  # 8
+
+        # Fix column, measure row contiguity
+        slice_contiguity(Layout((4, 8), (8, 1)), (None, 0))  # 1
+    """
+    layout = as_layout(layout)
+    sublayout = layout(*coord) if isinstance(coord, tuple) else layout(coord)
+    if isinstance(sublayout, int):
+        return 1  # fully fixed, scalar result
+    return contiguity(sublayout)
 
 
 # =============================================================================
