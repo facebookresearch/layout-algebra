@@ -695,6 +695,58 @@ def test_explain_flat_divide():
     assert '(tile0, tile1, ..., rest0, rest1, ...)' in text
 
 
+## MMAAtom and CopyAtom __str__
+
+
+def test_mma_atom_str():
+    """MMAAtom.__str__ returns a concise summary with name and shape."""
+    from tensor_layouts.atoms import MMAAtom
+
+    atom = MMAAtom(
+        name="test_16x8x4",
+        ptx="test.op",
+        shape_mnk=(16, 8, 4),
+        thr_id=Layout(32),
+        a_layout=Layout((32, 4), (4, 1)),
+        b_layout=Layout((32, 2), (2, 1)),
+        c_layout=Layout((32, 4), (4, 1)),
+    )
+    assert str(atom) == "MMAAtom('test_16x8x4', 16x8x4)"
+
+
+def test_copy_atom_str():
+    """CopyAtom.__str__ returns a concise summary with name."""
+    from tensor_layouts.atoms import CopyAtom
+
+    atom = CopyAtom(
+        name="test_copy_128b",
+        ptx="test.copy",
+        thr_id=Layout(32),
+        src_layout_bits=Layout((32, 128), (128, 1)),
+        dst_layout_bits=Layout((32, 128), (128, 1)),
+    )
+    assert str(atom) == "CopyAtom('test_copy_128b')"
+
+
+def test_mma_atom_repr_is_verbose():
+    """MMAAtom.__repr__ (dataclass-generated) includes all fields."""
+    from tensor_layouts.atoms import MMAAtom
+
+    atom = MMAAtom(
+        name="test_2x2x1",
+        ptx="test",
+        shape_mnk=(2, 2, 1),
+        thr_id=None,
+        a_layout=Layout(2, 1),
+        b_layout=Layout(2, 1),
+        c_layout=Layout((2, 2), (1, 2)),
+    )
+    r = repr(atom)
+    assert r.startswith("MMAAtom(name=")
+    assert "shape_mnk=(2, 2, 1)" in r
+    assert "a_layout=Layout(2, 1)" in r
+
+
 if __name__ == "__main__":
     import subprocess
     import sys
