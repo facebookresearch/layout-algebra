@@ -59,6 +59,40 @@ def test_offset_table_strided():
     assert all(len(v) == 1 for v in table.values())
 
 
+## footprint
+
+
+def test_footprint_contiguous():
+    """Contiguous layout: no holes, no reuse."""
+    result = footprint(Layout(8, 1))
+    assert result['min_offset'] == 0
+    assert result['max_offset'] == 7
+    assert result['span'] == 8
+    assert result['unique_offsets'] == 8
+    assert result['total_elements'] == 8
+    assert result['reuse_factor'] == 1.0
+    assert result['holes'] == 0
+
+
+def test_footprint_strided():
+    """Strided layout: holes between offsets."""
+    result = footprint(Layout(4, 2))
+    assert result['min_offset'] == 0
+    assert result['max_offset'] == 6
+    assert result['span'] == 7
+    assert result['unique_offsets'] == 4
+    assert result['holes'] == 3
+
+
+def test_footprint_broadcast():
+    """Broadcast: high reuse factor."""
+    result = footprint(Layout((4, 2), (0, 1)))
+    assert result['unique_offsets'] == 2
+    assert result['total_elements'] == 8
+    assert result['reuse_factor'] == 4.0
+    assert result['holes'] == 0
+
+
 ## bank_conflicts
 
 

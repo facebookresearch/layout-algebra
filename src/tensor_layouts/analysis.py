@@ -37,6 +37,7 @@ from .atoms import MMAAtom
 
 __all__ = [
     "offset_table",
+    "footprint",
     "bank_conflicts",
     "coalescing_efficiency",
     "cycles",
@@ -73,6 +74,56 @@ def offset_table(layout: Layout) -> dict:
         offset = layout(i)
         table.setdefault(offset, []).append(coord)
     return table
+
+
+def footprint(layout: Layout) -> dict:
+    """Summarize the memory footprint of a layout.
+
+    Answers the questions users most often ask about a layout's memory
+    behavior: how big is the footprint, how sparse is it, and how much
+    aliasing (reuse) is there?
+
+    Args:
+        layout: Layout to analyze.
+
+    Returns:
+        dict with:
+            min_offset: smallest offset produced
+            max_offset: largest offset produced
+            span: max_offset - min_offset + 1 (contiguous range needed)
+            unique_offsets: number of distinct offsets
+            total_elements: size(layout) (number of logical elements)
+            reuse_factor: total_elements / unique_offsets (1.0 = no aliasing)
+            holes: span - unique_offsets (0 = dense, no gaps)
+
+    Examples:
+        footprint(Layout(8, 1))
+        # {'min_offset': 0, 'max_offset': 7, 'span': 8,
+        #  'unique_offsets': 8, 'total_elements': 8,
+        #  'reuse_factor': 1.0, 'holes': 0}
+
+        footprint(Layout((4, 2), (0, 1)))  # broadcast
+        # {'min_offset': 0, 'max_offset': 1, 'span': 2,
+        #  'unique_offsets': 2, 'total_elements': 8,
+        #  'reuse_factor': 4.0, 'holes': 0}
+    """
+    layout = as_layout(layout)
+    offsets = image(layout)  # sorted list of unique offsets
+    n_unique = len(offsets)
+    n_total = size(layout)
+    min_off = offsets[0] if offsets else 0
+    max_off = offsets[-1] if offsets else 0
+    span = max_off - min_off + 1 if offsets else 0
+
+    return {
+        'min_offset': min_off,
+        'max_offset': max_off,
+        'span': span,
+        'unique_offsets': n_unique,
+        'total_elements': n_total,
+        'reuse_factor': n_total / n_unique if n_unique > 0 else 0.0,
+        'holes': span - n_unique,
+    }
 
 
 # =============================================================================
