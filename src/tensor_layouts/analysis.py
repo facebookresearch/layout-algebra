@@ -258,8 +258,8 @@ def coalescing_efficiency(layout: Layout, *, warp_size: int = 32,
         coalescing_efficiency(Layout(32, 1))
         # {'transactions': 1, 'efficiency': 0.5, ...}  -- 64B used of 128B line
 
-        # Strided access: each thread 2 elements apart
-        coalescing_efficiency(Layout(32, 2))
+        # Strided access: each thread 2 elements apart, fp32
+        coalescing_efficiency(Layout(32, 2), element_bytes=4)
         # {'transactions': 2, 'efficiency': 0.5, ...}
     """
     layout = as_layout(layout)
