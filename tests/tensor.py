@@ -37,8 +37,18 @@ The key invariant: tensor[fixed_coords, :](remaining_coords) == tensor(all_coord
 import pytest
 
 from tensor_layouts import (
-    Layout, Swizzle, compose, complement, logical_divide, logical_product,
-    rank, size, cosize, mode, flatten, coalesce
+    Layout,
+    Swizzle,
+    compose,
+    complement,
+    logical_divide,
+    logical_product,
+    rank,
+    size,
+    cosize,
+    mode,
+    flatten,
+    coalesce,
 )
 from tensor_layouts import Tensor
 
@@ -119,7 +129,7 @@ class TestTensorConstruction:
         assert tensor(0, 0) == 100
         assert tensor(1, 0) == 101
         assert tensor(0, 1) == 104
-        assert tensor(3, 7) == 100 + 3 + 7*4
+        assert tensor(3, 7) == 100 + 3 + 7 * 4
 
     def test_hierarchical_shape(self):
         """Nested/hierarchical shape - key CuTe feature."""
@@ -381,11 +391,11 @@ class TestTensorSlicingAccumulation:
 
         # Second slice
         s2 = s1[3, :]
-        assert s2.offset == 2 + 3*4  # = 14
+        assert s2.offset == 2 + 3 * 4  # = 14
 
         # Third slice
         s3 = s2[1]
-        assert s3 == 2 + 3*4 + 1*32  # = 46
+        assert s3 == 2 + 3 * 4 + 1 * 32  # = 46
 
     def test_slice_with_initial_offset(self):
         """Slicing tensor with non-zero offset accumulates correctly."""
@@ -970,7 +980,9 @@ class TestCuTeCompatibility:
         assert isinstance(thread1_slice, Tensor)
 
         # Verify they access different starting positions
-        assert thread0_slice.offset != thread1_slice.offset or thread0_slice(0) != thread1_slice(0)
+        assert thread0_slice.offset != thread1_slice.offset or thread0_slice(
+            0
+        ) != thread1_slice(0)
 
 
 if __name__ == "__main__":

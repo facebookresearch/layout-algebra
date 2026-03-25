@@ -72,45 +72,101 @@ __all__ = [
     # Type alias
     "IntOrIntTuple",
     # Type predicates
-    "is_tuple", "is_int", "is_scalar", "is_iterable", "is_layout",
-    "is_pure_shape", "has_none",
+    "is_tuple",
+    "is_int",
+    "is_scalar",
+    "is_iterable",
+    "is_layout",
+    "is_pure_shape",
+    "has_none",
     # Shape conversions
-    "as_tuple", "as_shape", "as_layout", "unwrap", "normalize",
+    "as_tuple",
+    "as_shape",
+    "as_layout",
+    "unwrap",
+    "normalize",
     # Core types
-    "Layout", "Tile", "Swizzle", "make_swizzle",
+    "Layout",
+    "Tile",
+    "Swizzle",
+    "make_swizzle",
     # Stride computation
-    "compute_col_major_strides", "compute_row_major_strides",
+    "compute_col_major_strides",
+    "compute_row_major_strides",
     # Query functions
-    "size", "cosize", "rank", "depth", "mode",
+    "size",
+    "cosize",
+    "rank",
+    "depth",
+    "mode",
     # Tuple operations
-    "concat", "congruent", "compatible",
-    "tuple_max", "transform_tuple", "zip_transform",
-    "fold", "fold_accumulate", "elem_scale", "inner_product",
-    "prefix_product", "suffix_product", "product_each",
+    "concat",
+    "congruent",
+    "compatible",
+    "tuple_max",
+    "transform_tuple",
+    "zip_transform",
+    "fold",
+    "fold_accumulate",
+    "elem_scale",
+    "inner_product",
+    "prefix_product",
+    "suffix_product",
+    "product_each",
     # Layout manipulation
-    "append", "prepend", "replace", "group",
-    "flatten", "unflatten", "sort", "coalesce",
+    "append",
+    "prepend",
+    "replace",
+    "group",
+    "flatten",
+    "unflatten",
+    "sort",
+    "coalesce",
     # Coordinate conversion
-    "idx2crd", "crd2flat", "crd2offset", "crd2idx", "crd2crd",
-    "slice_modes", "dice_modes", "slice_and_offset",
+    "idx2crd",
+    "crd2flat",
+    "crd2offset",
+    "crd2idx",
+    "crd2crd",
+    "slice_modes",
+    "dice_modes",
+    "slice_and_offset",
     # Core algebra
-    "compose", "complement", "logical_divide", "logical_product",
+    "compose",
+    "complement",
+    "logical_divide",
+    "logical_product",
     # Division variants
-    "zipped_divide", "tiled_divide", "flat_divide",
+    "zipped_divide",
+    "tiled_divide",
+    "flat_divide",
     # Product variants
-    "zipped_product", "tiled_product", "hier_unzip",
-    "blocked_product", "raked_product", "flat_product",
+    "zipped_product",
+    "tiled_product",
+    "hier_unzip",
+    "blocked_product",
+    "raked_product",
+    "flat_product",
     # Inverse and related
-    "right_inverse", "left_inverse", "nullspace",
-    "max_common_layout", "max_common_vector",
+    "right_inverse",
+    "left_inverse",
+    "nullspace",
+    "max_common_layout",
+    "max_common_vector",
     # Shape arithmetic
-    "safe_div", "shape_div", "shape_mod",
+    "safe_div",
+    "shape_div",
+    "shape_mod",
     # Upcast / downcast
-    "upcast", "downcast",
+    "upcast",
+    "downcast",
     # Iteration
     "iter_layout",
     # Image and injectivity
-    "image", "is_injective", "is_surjective", "is_bijective",
+    "image",
+    "is_injective",
+    "is_surjective",
+    "is_bijective",
     # Functional equivalence
     "functionally_equal",
 ]
@@ -143,7 +199,7 @@ def as_layout(obj):
     """
     if isinstance(obj, Layout):
         return obj
-    if hasattr(obj, 'shape') and hasattr(obj, 'stride'):
+    if hasattr(obj, "shape") and hasattr(obj, "stride"):
         return Layout(obj.shape, obj.stride)
     raise TypeError(f"Expected Layout, got {type(obj).__name__}")
 
@@ -198,6 +254,7 @@ def has_none(a) -> bool:
         has_none((1, (2, None))) -> True
     """
     return fold(a, False, lambda acc, v: acc or v is None)
+
 
 # =============================================================================
 # Shape conversions
@@ -301,6 +358,23 @@ def normalize(x: Any) -> IntOrIntTuple:
 #
 
 
+def _validate_shape_type(x, name: str) -> None:
+    """Validate that *x* is a valid shape or stride: int or nested tuple of ints.
+
+    Raises TypeError with a clear message naming the offending parameter
+    (``name`` should be ``"shape"`` or ``"stride"``).
+    """
+    if is_int(x):
+        return
+    if isinstance(x, (list, tuple)):
+        for elem in x:
+            _validate_shape_type(elem, name)
+        return
+    raise TypeError(
+        f"Layout {name} must be int or tuple of ints, got {type(x).__name__}"
+    )
+
+
 class Layout:
     """A function from logical coordinates to memory offsets: offset = sum(coord_i * stride_i).
 
@@ -355,11 +429,14 @@ class Layout:
 
         elif len(args) == 1:
             shape = args[0]
+            _validate_shape_type(shape, "shape")
             self._shape = normalize(shape)
             self._stride = compute_col_major_strides(self._shape)
 
         elif len(args) == 2:
             shape, stride = args
+            _validate_shape_type(shape, "shape")
+            _validate_shape_type(stride, "stride")
             self._shape = normalize(shape)
             self._stride = normalize(stride)
 
@@ -374,6 +451,8 @@ class Layout:
             )
 
     def __eq__(self, other):
+        if self is other:
+            return True
         if not isinstance(other, Layout):
             return False
         return (
@@ -389,15 +468,26 @@ class Layout:
         return hash((self.shape, self.stride, swizzle_hash))
 
     def __repr__(self):
+        """Return an eval-safe constructor string: Layout((4, 2), (1, 4))."""
+        if self._swizzle is not None:
+            return (
+                f"Layout({self._shape!r}, {self._stride!r}, "
+                f"swizzle={self._swizzle!r})"
+            )
+        return f"Layout({self._shape!r}, {self._stride!r})"
+
+    def __str__(self):
+        """Return human-readable CuTe notation: (4, 2) : (1, 4)."""
+
         def fmt(x):
-            """Format shape/stride: int as-is, tuple with parens."""
             if isinstance(x, int):
                 return str(x)
             return repr(x)
-        base_repr = f"{fmt(self._shape)} : {fmt(self._stride)}"
+
+        base = f"{fmt(self._shape)} : {fmt(self._stride)}"
         if self._swizzle is not None:
-            return f"({self._swizzle}) o ({base_repr})"
-        return base_repr
+            return f"({self._swizzle}) o ({base})"
+        return base
 
     @property
     def shape(self) -> IntOrIntTuple:
@@ -556,6 +646,7 @@ def _zero_leading_unit_strides(shape, strides):
                     still_leading = False
     return tuple(result)
 
+
 # =============================================================================
 # Query functions: size, rank, depth, mode
 # =============================================================================
@@ -567,6 +658,7 @@ def _zero_leading_unit_strides(shape, strides):
 #   depth -- nesting depth of the shape hierarchy
 #   mode  -- extract a single mode (dimension) from a shape or layout
 #
+
 
 def size(obj: Any) -> int:
     """Returns the logical number of elements (product of shape)."""
@@ -634,8 +726,10 @@ def concat(t1: Any, t2: Any):
     if is_tuple(t1) and is_tuple(t2):
         return t1 + t2
     if isinstance(t1, Layout) and isinstance(t2, Layout):
-        return Layout(as_tuple(t1.shape) + as_tuple(t2.shape),
-                      as_tuple(t1.stride) + as_tuple(t2.stride))
+        return Layout(
+            as_tuple(t1.shape) + as_tuple(t2.shape),
+            as_tuple(t1.stride) + as_tuple(t2.stride),
+        )
     raise TypeError(
         f"Cannot concatenate objects of {type(t1).__name__} and {type(t2).__name__}"
     )
@@ -698,7 +792,10 @@ def _can_group_a_into_b(a_modes: list, b) -> bool:
         return acc_size == target_size
 
     if is_tuple(b):
-        return all(_can_group_a_into_b(a_modes, sub_b) for sub_b in b) and len(a_modes) == 0
+        return (
+            all(_can_group_a_into_b(a_modes, sub_b) for sub_b in b)
+            and len(a_modes) == 0
+        )
 
     return False
 
@@ -712,6 +809,7 @@ def _can_group_a_into_b(a_modes: list, b) -> bool:
 # most natural traversal: the flat index runs from 0 to size(layout) - 1,
 # and coordinates are computed via idx2crd.
 #
+
 
 def iter_layout(layout: Layout):
     """Yield (coordinate, offset) pairs for every element in the layout.
@@ -740,6 +838,7 @@ def iter_layout(layout: Layout):
 #   is_surjective -- every offset in the codomain is hit
 #   is_bijective  -- both (the layout is a permutation)
 #
+
 
 def image(layout: Layout) -> list:
     """Return the sorted list of distinct offsets produced by the layout.
@@ -810,6 +909,7 @@ def is_bijective(layout: Layout) -> bool:
 # =============================================================================
 # Functional equivalence
 # =============================================================================
+
 
 def functionally_equal(a: Layout, b: Layout) -> bool:
     """True if two layouts compute the same mapping for every flat index.
@@ -882,9 +982,7 @@ def group(layout: Layout, start: int, end: int) -> Layout:
     """
     r = rank(layout)
     if start < 0 or end > r or start >= end:
-        raise ValueError(
-            f"Invalid group range [{start}, {end}) for layout of rank {r}"
-        )
+        raise ValueError(f"Invalid group range [{start}, {end}) for layout of rank {r}")
 
     shapes = list(as_tuple(layout.shape))
     strides = list(as_tuple(layout.stride))
@@ -950,6 +1048,7 @@ def unflatten(obj, target_profile):
         flatten(obj) == obj  (obj must already be flat)
         rank(flatten(target_profile)) == rank(obj)
     """
+
     def _unflatten_helper(flat_tuple, profile):
         """Consume elements from flat_tuple to match profile's structure."""
         if is_tuple(profile):
@@ -1032,6 +1131,7 @@ def sort(obj: Layout) -> Layout:
 # from a shape, which is how Layout(shape) auto-computes its strides.
 #
 
+
 def tuple_max(a: Any) -> int:
     """Return the maximum value across all terminals of a (possibly nested) int-tuple.
 
@@ -1040,7 +1140,7 @@ def tuple_max(a: Any) -> int:
         tuple_max((3, 7, 2)) -> 7
         tuple_max(((1, 9), (4, 2))) -> 9
     """
-    return fold(a, -float('inf'), lambda acc, x: max(acc, x))
+    return fold(a, -float("inf"), lambda acc, x: max(acc, x))
 
 
 def transform_tuple(t: Any, f) -> Any:
@@ -1187,7 +1287,9 @@ def inner_product(a: Any, b: Any) -> int:
         return sum(inner_product(x, y) for x, y in zip(a, b))
     else:
         if not isinstance(a, int) or not isinstance(b, int):
-            raise TypeError(f"Expected int, got {type(a).__name__} and {type(b).__name__}")
+            raise TypeError(
+                f"Expected int, got {type(a).__name__} and {type(b).__name__}"
+            )
         return a * b
 
 
@@ -1269,6 +1371,7 @@ def suffix_product(a: Any, init: Any = 1) -> Any:
 # always safe and always preserves semantics.
 #
 
+
 def coalesce(obj: Layout, profile: Any = None) -> Layout:
     """Returns a new Layout where contiguous dimensions are merged.
 
@@ -1335,7 +1438,9 @@ def _coalesce_by_mode(layout: Layout, profile: tuple) -> Layout:
                 result_s.append(1)
                 result_d.append(0)
             else:
-                coalesced = _coalesce_flat(Layout(mode(layout.shape, i), mode(layout.stride, i)))
+                coalesced = _coalesce_flat(
+                    Layout(mode(layout.shape, i), mode(layout.stride, i))
+                )
                 result_s.append(coalesced.shape)
                 result_d.append(coalesced.stride)
         return Layout(as_shape(result_s), as_shape(result_d))
@@ -1402,6 +1507,7 @@ def _coalesce_by_mode(layout: Layout, profile: tuple) -> Layout:
 # Slicing fixes some coordinates and returns a sublayout over the remaining
 # free dimensions, much like NumPy's array[3, :, :] syntax.
 #
+
 
 def complement(layout: Layout, cosize_bound: Any = None) -> Layout:
     """Compute the complement of a layout: a layout that fills in the gaps.
@@ -1474,13 +1580,9 @@ def complement(layout: Layout, cosize_bound: Any = None) -> Layout:
         # CuTe/pycute asserts current_stride <= stride * shape (injectivity).
         # Negative strides or zero-sized shapes violate this invariant.
         if stride < 0:
-            raise ValueError(
-                f"complement: negative stride {stride} is not supported"
-            )
+            raise ValueError(f"complement: negative stride {stride} is not supported")
         if shape == 0:
-            raise ValueError(
-                f"complement: zero-sized shape is not supported"
-            )
+            raise ValueError("complement: zero-sized shape is not supported")
         gap_size, next_stride = _step_mode(current_stride, stride, shape)
         if gap_size > 1:
             result_shapes.append(gap_size)
@@ -1564,10 +1666,7 @@ def right_inverse(layout: Any) -> Layout:
     if not result_shape:
         return Layout(1, 0)
 
-    return coalesce(Layout(
-        tuple(result_shape),
-        tuple(result_stride)
-    ))
+    return coalesce(Layout(tuple(result_shape), tuple(result_stride)))
 
 
 def left_inverse(layout: Any) -> Layout:
@@ -1758,10 +1857,13 @@ def slice_and_offset(crd, layout: Layout):
 # crd2crd:    convert between two shapes' coordinate spaces
 #
 
+
 def idx2crd(coord: Any, shape: Any) -> Any:
     """Convert index into a hierarchical coordinate."""
 
     if isinstance(shape, int):
+        if isinstance(coord, int):
+            return coord % shape
         return coord
 
     # Case: Input is a single integer index for this entire sub-hierarchy
@@ -1862,13 +1964,10 @@ def crd2offset(coord, shape, stride) -> int:
 
     # Case 3: nD coordinate mapping (coord tuple -> offset)
     if not is_tuple(coord):
-        raise TypeError(
-            f"Coordinate must be int or tuple, got {type(coord).__name__}"
-        )
+        raise TypeError(f"Coordinate must be int or tuple, got {type(coord).__name__}")
     if len(coord) != len(shape):
         raise ValueError(
-            f"Coordinate rank {len(coord)} does not match "
-            f"layout rank {len(shape)}"
+            f"Coordinate rank {len(coord)} does not match " f"layout rank {len(shape)}"
         )
     offset = 0
     for c, s, d in zip(coord, shape, stride):
@@ -1916,12 +2015,16 @@ def crd2crd(crd: Any, dst_shape: Any, src_shape: Any = None) -> Any:
     if is_tuple(crd):
         if is_tuple(dst_shape):
             if len(crd) != len(dst_shape):
-                raise ValueError(f"Rank mismatch: crd has {len(crd)} elements, dst_shape has {len(dst_shape)}")
+                raise ValueError(
+                    f"Rank mismatch: crd has {len(crd)} elements, dst_shape has {len(dst_shape)}"
+                )
             return zip_transform(crd, dst_shape, crd2crd)
         else:
             # crd is tuple, dst_shape is scalar: flatten using src_shape
             if src_shape is None:
-                raise ValueError("src_shape required to flatten tuple coordinate to scalar")
+                raise ValueError(
+                    "src_shape required to flatten tuple coordinate to scalar"
+                )
             return crd2flat(crd, src_shape)
     else:
         if is_tuple(dst_shape):
@@ -1954,7 +2057,9 @@ def slice_modes(crd, trg):
     if is_tuple(crd):
         if is_tuple(trg):
             if len(crd) != len(trg):
-                raise ValueError(f"Rank mismatch: crd has {len(crd)} elements, trg has {len(trg)}")
+                raise ValueError(
+                    f"Rank mismatch: crd has {len(crd)} elements, trg has {len(trg)}"
+                )
             # Flatten and concatenate non-empty results
             result = []
             for c, s in zip(crd, trg):
@@ -1995,12 +2100,15 @@ def dice_modes(crd, layout):
         dice_modes((0, None), Layout((3,4),(1,4))) -> 3:1           # keep mode 0
         dice_modes((None, 0), Layout((3,4),(1,4))) -> 4:4           # keep mode 1
     """
+
     def dice_tuple(crd, trg):
         """Keep elements of trg paired with integers in crd."""
         if is_tuple(crd):
             if is_tuple(trg):
                 if len(crd) != len(trg):
-                    raise ValueError(f"Rank mismatch: crd has {len(crd)} elements, trg has {len(trg)}")
+                    raise ValueError(
+                        f"Rank mismatch: crd has {len(crd)} elements, trg has {len(trg)}"
+                    )
                 result = []
                 for c, s in zip(crd, trg):
                     result.extend(dice_tuple(c, s))
@@ -2048,6 +2156,7 @@ def dice_modes(crd, layout):
 # composition work on hierarchical shapes: it propagates a divisor through
 # nested shape elements, consuming from the innermost (leftmost) modes first.
 #
+
 
 class Tile(tuple):
     """A Tiler is a tuple-of-Layouts used for mode-by-mode composition.
@@ -2164,6 +2273,7 @@ def shape_mod(shape: Any, modulus: int) -> Any:
         shape_mod((4, 3), 2) -> (2, 1)  # 2 consumed from first mode, nothing from second
         shape_mod((4, 3), 12) -> (4, 3) # All kept (modulus >= size)
     """
+
     def _scalar(s, m):
         return s if m >= s else math.gcd(s, m)
 
@@ -2216,7 +2326,9 @@ def upcast(layout: "Layout", n: int) -> "Layout":
     def _apply(shape, stride):
         if is_tuple(shape):
             if not is_tuple(stride) or len(shape) != len(stride):
-                raise ValueError(f"Shape/stride structure mismatch: {shape} vs {stride}")
+                raise ValueError(
+                    f"Shape/stride structure mismatch: {shape} vs {stride}"
+                )
             pairs = [_apply(s, d) for s, d in zip(shape, stride)]
             new_s = tuple(p[0] for p in pairs)
             new_d = tuple(p[1] for p in pairs)
@@ -2250,7 +2362,9 @@ def downcast(layout: "Layout", n: int) -> "Layout":
     def _apply(shape, stride):
         if is_tuple(shape):
             if not is_tuple(stride) or len(shape) != len(stride):
-                raise ValueError(f"Shape/stride structure mismatch: {shape} vs {stride}")
+                raise ValueError(
+                    f"Shape/stride structure mismatch: {shape} vs {stride}"
+                )
             pairs = [_apply(s, d) for s, d in zip(shape, stride)]
             new_s = tuple(p[0] for p in pairs)
             new_d = tuple(p[1] for p in pairs)
@@ -2327,17 +2441,20 @@ def _compose_layouts(layout_a: Layout, layout_b: Layout) -> Layout:
     def compose_element(b_shape, b_stride):
         """Recursively compose A with one element of B's shape/stride."""
         if is_tuple(b_shape):
-            results = [compose_element(b_shape[i], b_stride[i])
-                       for i in range(len(b_shape))]
-            return Layout(tuple(r.shape for r in results),
-                          tuple(r.stride for r in results))
+            results = [
+                compose_element(b_shape[i], b_stride[i]) for i in range(len(b_shape))
+            ]
+            return Layout(
+                tuple(r.shape for r in results), tuple(r.stride for r in results)
+            )
         return _composition_1d(layout_a, b_shape, b_stride)
 
     if is_tuple(layout_b.shape):
-        results = [compose_element(layout_b.shape[i], layout_b.stride[i])
-                   for i in range(len(layout_b.shape))]
-        return Layout(tuple(r.shape for r in results),
-                      tuple(r.stride for r in results))
+        results = [
+            compose_element(layout_b.shape[i], layout_b.stride[i])
+            for i in range(len(layout_b.shape))
+        ]
+        return Layout(tuple(r.shape for r in results), tuple(r.stride for r in results))
 
     return _composition_1d(layout_a, layout_b.shape, layout_b.stride)
 
@@ -2451,6 +2568,7 @@ def compose(layout_a: Any, layout_b: Any) -> Any:
 
     # Tuple tiler - convert elements and recurse
     if is_tuple(layout_b):
+
         def to_layout(elem):
             if isinstance(elem, Layout):
                 return elem
@@ -2616,8 +2734,16 @@ def _logical_divide_by_shape(layout: Layout, tiler_shape: Any) -> Layout:
             result_strides.append(divided.stride)
         else:
             tile_part = compose(Layout(s, d), Layout(tile_size, 1))
-            tile_s = unwrap(tile_part.shape) if is_tuple(tile_part.shape) else tile_part.shape
-            tile_d = unwrap(tile_part.stride) if is_tuple(tile_part.stride) else tile_part.stride
+            tile_s = (
+                unwrap(tile_part.shape)
+                if is_tuple(tile_part.shape)
+                else tile_part.shape
+            )
+            tile_d = (
+                unwrap(tile_part.stride)
+                if is_tuple(tile_part.stride)
+                else tile_part.stride
+            )
             result_shapes.append((tile_s, 1))
             result_strides.append((tile_d, elem_scale(d, mode_size)))
 
@@ -2692,7 +2818,9 @@ def zipped_divide(layout: Layout, tiler: Any) -> Layout:
     Examples:
         zipped_divide(Layout((4,8)), (2,4)) -> Layout(((2,4),(2,2)), ((1,4),(2,16)))
     """
-    tile_shapes, tile_strides, rest_shapes, rest_strides = _split_divided_modes(layout, tiler)
+    tile_shapes, tile_strides, rest_shapes, rest_strides = _split_divided_modes(
+        layout, tiler
+    )
 
     tiles_shape = as_shape(tile_shapes)
     tiles_stride = as_shape(tile_strides)
@@ -2724,7 +2852,9 @@ def tiled_divide(layout: Layout, tiler: Any) -> Layout:
     Examples:
         tiled_divide(Layout((8,8)), (2,2)) -> Layout(((2,2), 4, 4), ...)
     """
-    tile_shapes, tile_strides, rest_shapes, rest_strides = _split_divided_modes(layout, tiler)
+    tile_shapes, tile_strides, rest_shapes, rest_strides = _split_divided_modes(
+        layout, tiler
+    )
 
     tiles_shape = as_shape(tile_shapes)
     tiles_stride = as_shape(tile_strides)
@@ -2753,7 +2883,9 @@ def flat_divide(layout: Layout, tiler: Any) -> Layout:
     Examples:
         flat_divide(Layout((8,8)), (2,2)) -> Layout((2, 2, 4, 4), ...)
     """
-    tile_shapes, tile_strides, rest_shapes, rest_strides = _split_divided_modes(layout, tiler)
+    tile_shapes, tile_strides, rest_shapes, rest_strides = _split_divided_modes(
+        layout, tiler
+    )
 
     all_shapes = tile_shapes + rest_shapes
     all_strides = tile_strides + rest_strides
@@ -2853,8 +2985,10 @@ def hier_unzip(splitter, layout_a: Layout, layout_b) -> Layout:
                 f"layout_a rank ({rank(layout_a)}) < tiler length ({len(layout_b)})"
             )
 
-        splits = [hier_unzip(splitter, mode(layout_a, i), layout_b[i])
-                  for i in range(len(layout_b))]
+        splits = [
+            hier_unzip(splitter, mode(layout_a, i), layout_b[i])
+            for i in range(len(layout_b))
+        ]
 
         first_shapes = [mode(s, 0).shape for s in splits]
         first_strides = [mode(s, 0).stride for s in splits]
@@ -3074,7 +3208,9 @@ def _zip_layouts(layout_a: Layout, layout_b: Layout) -> Layout:
     # Handle scalar layouts by treating them as rank-1
     if a_rank == 0 and b_rank == 0:
         # Both scalar: create a single mode with paired shapes/strides
-        return Layout((layout_a.shape, layout_b.shape), (layout_a.stride, layout_b.stride))
+        return Layout(
+            (layout_a.shape, layout_b.shape), (layout_a.stride, layout_b.stride)
+        )
 
     if a_rank != b_rank:
         raise ValueError(f"Rank mismatch in zip: {a_rank} vs {b_rank}")
@@ -3239,9 +3375,15 @@ class Swizzle:
         return f"Swizzle({self.bits}, {self.base}, {self.shift})"
 
     def __eq__(self, other: object) -> bool:
+        if self is other:
+            return True
         if not isinstance(other, Swizzle):
             return False
-        return self.bits == other.bits and self.base == other.base and self.shift == other.shift
+        return (
+            self.bits == other.bits
+            and self.base == other.base
+            and self.shift == other.shift
+        )
 
     @property
     def yyy_msk(self) -> int:

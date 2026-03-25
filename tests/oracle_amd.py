@@ -44,42 +44,51 @@ import pytest
 
 from tensor_layouts import Layout, size, rank, depth, mode, cosize
 from tensor_layouts.layouts import (
-    compose, complement, flatten, coalesce,
-    logical_divide, logical_product,
-    left_inverse, right_inverse,
-    idx2crd, crd2idx,
+    compose,
+    complement,
+    flatten,
+    coalesce,
+    logical_divide,
+    logical_product,
+    left_inverse,
+    right_inverse,
+    idx2crd,
+    crd2idx,
 )
 from tensor_layouts.layout_utils import (
-    make_ordered_layout, tile_to_shape, product_each,
+    make_ordered_layout,
+    tile_to_shape,
+    product_each,
 )
-from tensor_layouts.atoms_amd import *
+from tensor_layouts.atoms_amd import * # noqa: F401,F403,F405
 
 # Try to import the AMD matrix instruction calculator.
 try:
     from amd_matrix_instruction_calculator import matrix_calculator
+
     HAS_CALCULATOR = True
 except ImportError:
     try:
         import matrix_calculator
+
         HAS_CALCULATOR = True
     except ImportError:
         HAS_CALCULATOR = False
 
 requires_calculator = pytest.mark.skipif(
-    not HAS_CALCULATOR,
-    reason="amd_matrix_instruction_calculator not available"
+    not HAS_CALCULATOR, reason="amd_matrix_instruction_calculator not available"
 )
 
 # Try to import visualization module (requires matplotlib).
 try:
     from tensor_layouts.viz import draw_tv_layout, draw_mma_layout, _compute_tv_mapping
+
     HAS_VIZ = True
 except ImportError:
     HAS_VIZ = False
 
 requires_viz = pytest.mark.skipif(
-    not HAS_VIZ,
-    reason="tensor_layouts.viz not available (needs matplotlib)"
+    not HAS_VIZ, reason="tensor_layouts.viz not available (needs matplotlib)"
 )
 
 
@@ -133,9 +142,12 @@ ALL_ATOMS = [
 # Helpers
 # =============================================================================
 
+
 def _num_threads(layout):
     """Number of threads from a TV layout's thread dimension."""
-    return size(layout.shape[0]) if isinstance(layout.shape, tuple) else size(layout.shape)
+    return (
+        size(layout.shape[0]) if isinstance(layout.shape, tuple) else size(layout.shape)
+    )
 
 
 def _num_values(layout):
@@ -166,10 +178,10 @@ def get_calculator_d_mapping(arch: str, instruction: str, m: int, n: int):
     try:
         info = matrix_calculator.get_instruction_info(arch, instruction)
         mapping = {}
-        num_vgprs = info['num_output_regs']
+        num_vgprs = info["num_output_regs"]
         for lane in range(64):
             for vgpr in range(num_vgprs):
-                row, col = info['get_output'](lane, vgpr)
+                row, col = info["get_output"](lane, vgpr)
                 mapping[(lane, vgpr)] = (row, col)
         return mapping
     except (AttributeError, KeyError):
@@ -206,9 +218,8 @@ def validate_c_layout(atom, arch: str):
                         f"ref=({ref_row},{ref_col})"
                     )
 
-    assert not errors, (
-        f"{atom.name}: {len(errors)} mismatches:\n" +
-        "\n".join(errors[:20])
+    assert not errors, f"{atom.name}: {len(errors)} mismatches:\n" + "\n".join(
+        errors[:20]
     )
 
 
@@ -216,13 +227,16 @@ def validate_c_layout(atom, arch: str):
 # CDNA1 (gfx908) FP16 atoms
 # =============================================================================
 
+
 @requires_calculator
 def test_oracle_cdna_32x32x8_f32f16f16():
     validate_c_layout(CDNA_32x32x8_F32F16F16_MFMA, "cdna1")
 
+
 @requires_calculator
 def test_oracle_cdna_16x16x16_f32f16f16():
     validate_c_layout(CDNA_16x16x16_F32F16F16_MFMA, "cdna1")
+
 
 @requires_calculator
 def test_oracle_cdna_4x4x4_f32f16f16():
@@ -233,9 +247,11 @@ def test_oracle_cdna_4x4x4_f32f16f16():
 # CDNA1 non-k-reduction variants
 # =============================================================================
 
+
 @requires_calculator
 def test_oracle_cdna_32x32x4_f32f16f16():
     validate_c_layout(CDNA_32x32x4_F32F16F16_MFMA, "cdna1")
+
 
 @requires_calculator
 def test_oracle_cdna_16x16x4_f32f16f16():
@@ -246,9 +262,11 @@ def test_oracle_cdna_16x16x4_f32f16f16():
 # CDNA2 (gfx90a) BF16_1K atoms
 # =============================================================================
 
+
 @requires_calculator
 def test_oracle_cdna_32x32x8_f32bf16bf16_1k():
     validate_c_layout(CDNA_32x32x8_F32BF16BF16_1K_MFMA, "cdna2")
+
 
 @requires_calculator
 def test_oracle_cdna_16x16x16_f32bf16bf16_1k():
@@ -259,9 +277,11 @@ def test_oracle_cdna_16x16x16_f32bf16bf16_1k():
 # CDNA1/2 BF16 (original, non-1K) atoms
 # =============================================================================
 
+
 @requires_calculator
 def test_oracle_cdna_32x32x4_f32bf16bf16():
     validate_c_layout(CDNA_32x32x4_F32BF16BF16_MFMA, "cdna1")
+
 
 @requires_calculator
 def test_oracle_cdna_16x16x8_f32bf16bf16():
@@ -272,9 +292,11 @@ def test_oracle_cdna_16x16x8_f32bf16bf16():
 # CDNA1/2 INT8 atoms
 # =============================================================================
 
+
 @requires_calculator
 def test_oracle_cdna_32x32x8_i32i8i8():
     validate_c_layout(CDNA_32x32x8_I32I8I8_MFMA, "cdna1")
+
 
 @requires_calculator
 def test_oracle_cdna_16x16x16_i32i8i8():
@@ -285,9 +307,11 @@ def test_oracle_cdna_16x16x16_i32i8i8():
 # CDNA1/2 FP32 atoms
 # =============================================================================
 
+
 @requires_calculator
 def test_oracle_cdna_32x32x2_f32f32f32():
     validate_c_layout(CDNA_32x32x2_F32F32F32_MFMA, "cdna1")
+
 
 @requires_calculator
 def test_oracle_cdna_16x16x4_f32f32f32():
@@ -298,6 +322,7 @@ def test_oracle_cdna_16x16x4_f32f32f32():
 # CDNA2/3 FP64 atom
 # =============================================================================
 
+
 @requires_calculator
 def test_oracle_cdna_16x16x4_f64f64f64():
     validate_c_layout(CDNA_16x16x4_F64F64F64_MFMA, "cdna2")
@@ -307,17 +332,21 @@ def test_oracle_cdna_16x16x4_f64f64f64():
 # CDNA3 (gfx942) enhanced atoms
 # =============================================================================
 
+
 @requires_calculator
 def test_oracle_cdna3_32x32x16_i32i8i8():
     validate_c_layout(CDNA3_32x32x16_I32I8I8_MFMA, "cdna3")
+
 
 @requires_calculator
 def test_oracle_cdna3_16x16x32_i32i8i8():
     validate_c_layout(CDNA3_16x16x32_I32I8I8_MFMA, "cdna3")
 
+
 @requires_calculator
 def test_oracle_cdna3_32x32x4_f32xf32xf32():
     validate_c_layout(CDNA3_32x32x4_F32XF32XF32_MFMA, "cdna3")
+
 
 @requires_calculator
 def test_oracle_cdna3_16x16x8_f32xf32xf32():
@@ -328,33 +357,41 @@ def test_oracle_cdna3_16x16x8_f32xf32xf32():
 # CDNA3 FP8 atoms
 # =============================================================================
 
+
 @requires_calculator
 def test_oracle_cdna3_32x32x16_f32f8f8():
     validate_c_layout(CDNA3_32x32x16_F32F8F8_MFMA, "cdna3")
+
 
 @requires_calculator
 def test_oracle_cdna3_16x16x32_f32f8f8():
     validate_c_layout(CDNA3_16x16x32_F32F8F8_MFMA, "cdna3")
 
+
 @requires_calculator
 def test_oracle_cdna3_32x32x16_f32bf8bf8():
     validate_c_layout(CDNA3_32x32x16_F32BF8BF8_MFMA, "cdna3")
+
 
 @requires_calculator
 def test_oracle_cdna3_16x16x32_f32bf8bf8():
     validate_c_layout(CDNA3_16x16x32_F32BF8BF8_MFMA, "cdna3")
 
+
 @requires_calculator
 def test_oracle_cdna3_32x32x16_f32f8bf8():
     validate_c_layout(CDNA3_32x32x16_F32F8BF8_MFMA, "cdna3")
+
 
 @requires_calculator
 def test_oracle_cdna3_16x16x32_f32f8bf8():
     validate_c_layout(CDNA3_16x16x32_F32F8BF8_MFMA, "cdna3")
 
+
 @requires_calculator
 def test_oracle_cdna3_32x32x16_f32bf8f8():
     validate_c_layout(CDNA3_32x32x16_F32BF8F8_MFMA, "cdna3")
+
 
 @requires_calculator
 def test_oracle_cdna3_16x16x32_f32bf8f8():
@@ -365,25 +402,31 @@ def test_oracle_cdna3_16x16x32_f32bf8f8():
 # CDNA3+ (gfx950) double-rate atoms
 # =============================================================================
 
+
 @requires_calculator
 def test_oracle_cdna3p_32x32x16_f32f16f16():
     validate_c_layout(CDNA3P_32x32x16_F32F16F16_MFMA, "cdna3")
+
 
 @requires_calculator
 def test_oracle_cdna3p_16x16x32_f32f16f16():
     validate_c_layout(CDNA3P_16x16x32_F32F16F16_MFMA, "cdna3")
 
+
 @requires_calculator
 def test_oracle_cdna3p_32x32x16_f32bf16bf16():
     validate_c_layout(CDNA3P_32x32x16_F32BF16BF16_MFMA, "cdna3")
+
 
 @requires_calculator
 def test_oracle_cdna3p_16x16x32_f32bf16bf16():
     validate_c_layout(CDNA3P_16x16x32_F32BF16BF16_MFMA, "cdna3")
 
+
 @requires_calculator
 def test_oracle_cdna3p_32x32x32_i32i8i8():
     validate_c_layout(CDNA3P_32x32x32_I32I8I8_MFMA, "cdna3")
+
 
 @requires_calculator
 def test_oracle_cdna3p_16x16x64_i32i8i8():
@@ -396,6 +439,7 @@ def test_oracle_cdna3p_16x16x64_i32i8i8():
 
 # These tests verify algebraic properties of the layouts themselves,
 # independent of the AMD calculator. They always run.
+
 
 @pytest.mark.parametrize("atom", ALL_ATOMS, ids=lambda a: a.name)
 class TestMFMAStructural:
@@ -412,110 +456,115 @@ class TestMFMAStructural:
         for t in range(num_t):
             for v in range(num_v):
                 offset = c(t, v)
-                assert 0 <= offset < m * n, \
-                    f"{atom.name}: offset {offset} out of range [0, {m*n})"
-                assert offset not in seen, \
-                    f"{atom.name}: duplicate offset {offset} at t={t}, v={v}"
+                assert (
+                    0 <= offset < m * n
+                ), f"{atom.name}: offset {offset} out of range [0, {m*n})"
+                assert (
+                    offset not in seen
+                ), f"{atom.name}: duplicate offset {offset} at t={t}, v={v}"
                 seen.add(offset)
 
-        assert len(seen) == m * n, \
-            f"{atom.name}: covers {len(seen)} elements, expected {m*n}"
+        assert (
+            len(seen) == m * n
+        ), f"{atom.name}: covers {len(seen)} elements, expected {m*n}"
 
     def test_c_layout_thread_count(self, atom):
         """Thread dimension has exactly 64 elements (one wavefront)."""
         c = atom.c_layout
-        assert _num_threads(c) == 64, \
-            f"{atom.name}: {_num_threads(c)} threads, expected 64"
+        assert (
+            _num_threads(c) == 64
+        ), f"{atom.name}: {_num_threads(c)} threads, expected 64"
 
     def test_a_layout_thread_count(self, atom):
         """A layout thread dimension has exactly 64 elements."""
         a = atom.a_layout
-        assert _num_threads(a) == 64, \
-            f"{atom.name}: A has {_num_threads(a)} threads, expected 64"
+        assert (
+            _num_threads(a) == 64
+        ), f"{atom.name}: A has {_num_threads(a)} threads, expected 64"
 
     def test_b_layout_thread_count(self, atom):
         """B layout thread dimension has exactly 64 elements."""
         b = atom.b_layout
-        assert _num_threads(b) == 64, \
-            f"{atom.name}: B has {_num_threads(b)} threads, expected 64"
+        assert (
+            _num_threads(b) == 64
+        ), f"{atom.name}: B has {_num_threads(b)} threads, expected 64"
 
     def test_a_layout_broadcast(self, atom):
         """A layout broadcasts across blocks (stride-0 in block dimension)."""
         a = atom.a_layout
         if isinstance(a.stride, tuple) and isinstance(a.stride[0], tuple):
             blk_stride = a.stride[0][0]
-            assert blk_stride == 0, \
-                f"{atom.name}: A layout block stride is {blk_stride}, expected 0"
+            assert (
+                blk_stride == 0
+            ), f"{atom.name}: A layout block stride is {blk_stride}, expected 0"
 
     def test_b_layout_broadcast(self, atom):
         """B layout broadcasts across blocks (stride-0 in block dimension)."""
         b = atom.b_layout
         if isinstance(b.stride, tuple) and isinstance(b.stride[0], tuple):
             blk_stride = b.stride[0][0]
-            assert blk_stride == 0, \
-                f"{atom.name}: B layout block stride is {blk_stride}, expected 0"
+            assert (
+                blk_stride == 0
+            ), f"{atom.name}: B layout block stride is {blk_stride}, expected 0"
 
     def test_a_layout_cosize_bounded(self, atom):
         """A layout codomain is bounded by thread_count * values_per_thread."""
         a = atom.a_layout
         # cosize is max_offset + 1; for broadcast layouts this can exceed M*K
         # but must be bounded by the underlying coordinate space
-        assert cosize(a) >= 1, \
-            f"{atom.name}: A cosize must be positive"
+        assert cosize(a) >= 1, f"{atom.name}: A cosize must be positive"
 
     def test_b_layout_cosize_bounded(self, atom):
         """B layout codomain is bounded by thread_count * values_per_thread."""
         b = atom.b_layout
-        assert cosize(b) >= 1, \
-            f"{atom.name}: B cosize must be positive"
+        assert cosize(b) >= 1, f"{atom.name}: B cosize must be positive"
 
     def test_c_layout_cosize_equals_mn(self, atom):
         """C layout codomain spans exactly M x N (since it's a bijection)."""
         m, n, k = atom.shape_mnk
         c = atom.c_layout
-        assert cosize(c) == m * n, \
-            f"{atom.name}: C cosize {cosize(c)} != M*N={m*n}"
+        assert cosize(c) == m * n, f"{atom.name}: C cosize {cosize(c)} != M*N={m*n}"
 
     def test_thr_id_is_none(self, atom):
         """AMD MFMA atoms use identity thread mapping (thr_id is None)."""
-        assert atom.thr_id is None, \
-            f"{atom.name}: thr_id should be None, got {atom.thr_id}"
+        assert (
+            atom.thr_id is None
+        ), f"{atom.name}: thr_id should be None, got {atom.thr_id}"
 
     def test_c_layout_rank_is_2(self, atom):
         """C layout is rank-2: (thread, value)."""
         c = atom.c_layout
-        assert rank(c) == 2, \
-            f"{atom.name}: C rank {rank(c)}, expected 2"
+        assert rank(c) == 2, f"{atom.name}: C rank {rank(c)}, expected 2"
 
     def test_a_layout_rank_is_2(self, atom):
         """A layout is rank-2: (thread, value)."""
         a = atom.a_layout
-        assert rank(a) == 2, \
-            f"{atom.name}: A rank {rank(a)}, expected 2"
+        assert rank(a) == 2, f"{atom.name}: A rank {rank(a)}, expected 2"
 
     def test_b_layout_rank_is_2(self, atom):
         """B layout is rank-2: (thread, value)."""
         b = atom.b_layout
-        assert rank(b) == 2, \
-            f"{atom.name}: B rank {rank(b)}, expected 2"
+        assert rank(b) == 2, f"{atom.name}: B rank {rank(b)}, expected 2"
 
     def test_layout_sizes_match_shape_mnk(self, atom):
         """Layout domain sizes are consistent with M, N, K."""
         m, n, k = atom.shape_mnk
         a, b, c = atom.a_layout, atom.b_layout, atom.c_layout
-        assert size(c) == m * n, \
-            f"{atom.name}: C size {size(c)} != M*N={m*n}"
+        assert size(c) == m * n, f"{atom.name}: C size {size(c)} != M*N={m*n}"
         # A and B sizes include the broadcast dimension, so size >= M*K / N*K
         # but since broadcast replicates the same data, size == 64 * values_per_thread
-        assert size(a) == 64 * _num_values(a), \
-            f"{atom.name}: A size {size(a)} != 64 * {_num_values(a)}"
-        assert size(b) == 64 * _num_values(b), \
-            f"{atom.name}: B size {size(b)} != 64 * {_num_values(b)}"
+        assert size(a) == 64 * _num_values(
+            a
+        ), f"{atom.name}: A size {size(a)} != 64 * {_num_values(a)}"
+        assert size(b) == 64 * _num_values(
+            b
+        ), f"{atom.name}: B size {size(b)} != 64 * {_num_values(b)}"
 
 
 # =============================================================================
 # Layout algebra tests (run without the calculator)
 # =============================================================================
+
 
 @pytest.mark.parametrize("atom", ALL_ATOMS, ids=lambda a: a.name)
 class TestLayoutAlgebra:
@@ -523,7 +572,11 @@ class TestLayoutAlgebra:
 
     def test_size_rank_depth_mode(self, atom):
         """Exercise size(), rank(), depth(), mode() on all three layouts."""
-        for layout_name, layout in [("C", atom.c_layout), ("A", atom.a_layout), ("B", atom.b_layout)]:
+        for layout_name, layout in [
+            ("C", atom.c_layout),
+            ("A", atom.a_layout),
+            ("B", atom.b_layout),
+        ]:
             s = size(layout)
             r = rank(layout)
             d = depth(layout)
@@ -534,8 +587,9 @@ class TestLayoutAlgebra:
             # mode(layout, 0) is the thread dimension
             thr_mode = mode(layout, 0)
             val_mode = mode(layout, 1)
-            assert size(thr_mode) * size(val_mode) == s, \
-                f"{atom.name} {layout_name}: mode sizes don't multiply to total"
+            assert (
+                size(thr_mode) * size(val_mode) == s
+            ), f"{atom.name} {layout_name}: mode sizes don't multiply to total"
 
     def test_flatten_preserves_mapping(self, atom):
         """flatten(c_layout) produces the same offsets for all flat indices."""
@@ -543,16 +597,18 @@ class TestLayoutAlgebra:
         c_flat = flatten(c)
         # Flattened layout should produce same offsets when indexed linearly
         for i in range(size(c)):
-            assert c_flat(i) == c(i), \
-                f"{atom.name}: flatten mismatch at {i}: {c_flat(i)} != {c(i)}"
+            assert c_flat(i) == c(
+                i
+            ), f"{atom.name}: flatten mismatch at {i}: {c_flat(i)} != {c(i)}"
 
     def test_coalesce_preserves_mapping(self, atom):
         """coalesce(c_layout) produces the same offsets."""
         c = atom.c_layout
         c_coal = coalesce(c)
         for i in range(size(c)):
-            assert c_coal(i) == c(i), \
-                f"{atom.name}: coalesce mismatch at {i}: {c_coal(i)} != {c(i)}"
+            assert c_coal(i) == c(
+                i
+            ), f"{atom.name}: coalesce mismatch at {i}: {c_coal(i)} != {c(i)}"
 
     def test_compose_with_identity(self, atom):
         """compose(L, identity) == L for all indices."""
@@ -560,8 +616,7 @@ class TestLayoutAlgebra:
         identity = Layout(size(c))  # col-major identity
         composed = compose(c, identity)
         for i in range(size(c)):
-            assert composed(i) == c(i), \
-                f"{atom.name}: compose(C, id) mismatch at {i}"
+            assert composed(i) == c(i), f"{atom.name}: compose(C, id) mismatch at {i}"
 
     def test_complement_c_layout(self, atom):
         """complement of flattened C layout produces valid ordered disjoint layout."""
@@ -571,13 +626,15 @@ class TestLayoutAlgebra:
         comp = complement(c_flat)
         # complement must be ordered: comp(i-1) < comp(i) for i >= 1
         for i in range(1, size(comp)):
-            assert comp(i - 1) < comp(i), \
-                f"{atom.name}: complement not ordered at {i}: {comp(i-1)} >= {comp(i)}"
+            assert comp(i - 1) < comp(
+                i
+            ), f"{atom.name}: complement not ordered at {i}: {comp(i-1)} >= {comp(i)}"
         # complement must be disjoint from layout for i >= 1
         c_offsets = {c_flat(j) for j in range(size(c_flat))}
         for i in range(1, size(comp)):
-            assert comp(i) not in c_offsets, \
-                f"{atom.name}: complement({i})={comp(i)} overlaps with layout"
+            assert (
+                comp(i) not in c_offsets
+            ), f"{atom.name}: complement({i})={comp(i)} overlaps with layout"
 
     def test_left_inverse_c_layout(self, atom):
         """left_inverse(C) composed with C gives identity for flat indices."""
@@ -588,8 +645,9 @@ class TestLayoutAlgebra:
         for i in range(size(c_flat)):
             offset = c_flat(i)
             roundtrip = linv(offset)
-            assert roundtrip == i, \
-                f"{atom.name}: left_inverse roundtrip at {i}: {roundtrip} != {i}"
+            assert (
+                roundtrip == i
+            ), f"{atom.name}: left_inverse roundtrip at {i}: {roundtrip} != {i}"
 
     def test_right_inverse_c_layout(self, atom):
         """C composed with right_inverse(C) gives identity for offsets in range."""
@@ -600,8 +658,9 @@ class TestLayoutAlgebra:
         for i in range(size(c_flat)):
             offset = c_flat(i)
             roundtrip = c_flat(rinv(offset))
-            assert roundtrip == offset, \
-                f"{atom.name}: right_inverse roundtrip at offset {offset}: {roundtrip} != {offset}"
+            assert (
+                roundtrip == offset
+            ), f"{atom.name}: right_inverse roundtrip at offset {offset}: {roundtrip} != {offset}"
 
     def test_logical_divide_c_layout(self, atom):
         """logical_divide factors C layout into (tile, rest)."""
@@ -614,8 +673,9 @@ class TestLayoutAlgebra:
         c_flat_thr = flatten(mode(c, 0))
         divided = logical_divide(c_flat_thr, tiler)
         # The divided layout must cover the same total size
-        assert size(divided) == size(c_flat_thr), \
-            f"{atom.name}: logical_divide changed size: {size(divided)} != {size(c_flat_thr)}"
+        assert size(divided) == size(
+            c_flat_thr
+        ), f"{atom.name}: logical_divide changed size: {size(divided)} != {size(c_flat_thr)}"
 
     def test_logical_product(self, atom):
         """logical_product replicates a pattern across positions."""
@@ -625,12 +685,14 @@ class TestLayoutAlgebra:
         replicator = Layout(2, size(c_flat))
         product = logical_product(c_flat, replicator)
         # Size should be original * 2
-        assert size(product) == size(c_flat) * 2, \
-            f"{atom.name}: logical_product size {size(product)} != {size(c_flat) * 2}"
+        assert (
+            size(product) == size(c_flat) * 2
+        ), f"{atom.name}: logical_product size {size(product)} != {size(c_flat) * 2}"
         # First half should match original
         for i in range(size(c_flat)):
-            assert product(i) == c_flat(i), \
-                f"{atom.name}: logical_product first-half mismatch at {i}"
+            assert product(i) == c_flat(
+                i
+            ), f"{atom.name}: logical_product first-half mismatch at {i}"
 
     def test_idx2crd_crd2idx_roundtrip(self, atom):
         """idx2crd and crd2idx are inverses on the thread dimension shape."""
@@ -639,8 +701,9 @@ class TestLayoutAlgebra:
         for i in range(size(thr_shape)):
             crd = idx2crd(i, thr_shape)
             idx = crd2idx(crd, thr_shape)
-            assert idx == i, \
-                f"{atom.name}: idx2crd/crd2idx roundtrip at {i}: {idx} != {i}"
+            assert (
+                idx == i
+            ), f"{atom.name}: idx2crd/crd2idx roundtrip at {i}: {idx} != {i}"
 
     def test_idx2crd_crd2idx_roundtrip_val(self, atom):
         """idx2crd/crd2idx roundtrip on value dimension."""
@@ -649,8 +712,9 @@ class TestLayoutAlgebra:
         for i in range(size(val_shape)):
             crd = idx2crd(i, val_shape)
             idx = crd2idx(crd, val_shape)
-            assert idx == i, \
-                f"{atom.name}: val idx2crd/crd2idx roundtrip at {i}: {idx} != {i}"
+            assert (
+                idx == i
+            ), f"{atom.name}: val idx2crd/crd2idx roundtrip at {i}: {idx} != {i}"
 
     def test_flatten_is_idempotent(self, atom):
         """flatten(flatten(L)) == flatten(L)."""
@@ -658,8 +722,7 @@ class TestLayoutAlgebra:
         once = flatten(c)
         twice = flatten(once)
         for i in range(size(c)):
-            assert once(i) == twice(i), \
-                f"{atom.name}: flatten not idempotent at {i}"
+            assert once(i) == twice(i), f"{atom.name}: flatten not idempotent at {i}"
 
     def test_coalesce_is_idempotent(self, atom):
         """coalesce(coalesce(L)) == coalesce(L)."""
@@ -667,16 +730,14 @@ class TestLayoutAlgebra:
         once = coalesce(c)
         twice = coalesce(once)
         for i in range(size(c)):
-            assert once(i) == twice(i), \
-                f"{atom.name}: coalesce not idempotent at {i}"
+            assert once(i) == twice(i), f"{atom.name}: coalesce not idempotent at {i}"
 
     def test_flatten_then_coalesce(self, atom):
         """flatten then coalesce produces same mapping."""
         c = atom.c_layout
         fc = coalesce(flatten(c))
         for i in range(size(c)):
-            assert fc(i) == c(i), \
-                f"{atom.name}: flatten+coalesce mismatch at {i}"
+            assert fc(i) == c(i), f"{atom.name}: flatten+coalesce mismatch at {i}"
 
     def test_compose_chain(self, atom):
         """compose(compose(L, A), B) == compose(L, compose(A, B)) (associativity)."""
@@ -689,8 +750,9 @@ class TestLayoutAlgebra:
         lhs = compose(compose(c_flat, a), b)
         rhs = compose(c_flat, compose(a, b))
         for i in range(size(b)):
-            assert lhs(i) == rhs(i), \
-                f"{atom.name}: compose associativity failed at {i}: {lhs(i)} != {rhs(i)}"
+            assert lhs(i) == rhs(
+                i
+            ), f"{atom.name}: compose associativity failed at {i}: {lhs(i)} != {rhs(i)}"
 
     def test_make_ordered_layout_flat_c_shape(self, atom):
         """make_ordered_layout on flattened C shape produces ordered strides."""
@@ -698,12 +760,14 @@ class TestLayoutAlgebra:
         c_flat = flatten(c)
         ordered = make_ordered_layout(c_flat.shape)
         # Same size
-        assert size(ordered) == size(c), \
-            f"{atom.name}: make_ordered_layout changed size"
+        assert size(ordered) == size(
+            c
+        ), f"{atom.name}: make_ordered_layout changed size"
         # Ordered: strides should be increasing (column-major order)
         for i in range(1, size(ordered)):
-            assert ordered(i) > ordered(i - 1), \
-                f"{atom.name}: make_ordered_layout not ordered at {i}"
+            assert ordered(i) > ordered(
+                i - 1
+            ), f"{atom.name}: make_ordered_layout not ordered at {i}"
 
 
 # =============================================================================
@@ -730,16 +794,18 @@ class TestVisualization:
         """_compute_tv_mapping on c_layout covers every cell of the M x N grid."""
         m, n, k = atom.shape_mnk
         c = atom.c_layout
-        tv_map = _compute_tv_mapping(c, grid_cols=n, grid_rows=m,
-                                     col_major=True)
+        tv_map = _compute_tv_mapping(c, grid_cols=n, grid_rows=m, col_major=True)
         # Every (row, col) in [0,M) x [0,N) should have an entry
         for row in range(m):
             for col in range(n):
-                assert (row, col) in tv_map, \
-                    f"{atom.name}: C tv_map missing ({row},{col})"
+                assert (
+                    row,
+                    col,
+                ) in tv_map, f"{atom.name}: C tv_map missing ({row},{col})"
                 phys_t, v_idx, logical_t = tv_map[(row, col)]
-                assert 0 <= phys_t < 64, \
-                    f"{atom.name}: C invalid thread {phys_t} at ({row},{col})"
+                assert (
+                    0 <= phys_t < 64
+                ), f"{atom.name}: C invalid thread {phys_t} at ({row},{col})"
 
     def test_compute_tv_mapping_a(self, atom):
         """_compute_tv_mapping on a_layout produces valid entries."""
@@ -756,8 +822,9 @@ class TestVisualization:
         for t in range(64):
             for v in range(num_v):
                 offset = a(t, v)
-                assert 0 <= offset < a_cosize, \
-                    f"{atom.name}: A offset {offset} out of range [0, {a_cosize})"
+                assert (
+                    0 <= offset < a_cosize
+                ), f"{atom.name}: A offset {offset} out of range [0, {a_cosize})"
 
     def test_compute_tv_mapping_b(self, atom):
         """_compute_tv_mapping on b_layout produces valid entries."""
@@ -768,15 +835,15 @@ class TestVisualization:
         for t in range(64):
             for v in range(num_v):
                 offset = b(t, v)
-                assert 0 <= offset < b_cosize, \
-                    f"{atom.name}: B offset {offset} out of range [0, {b_cosize})"
+                assert (
+                    0 <= offset < b_cosize
+                ), f"{atom.name}: B offset {offset} out of range [0, {b_cosize})"
 
     def test_compute_tv_mapping_c_threads_match(self, atom):
         """Thread IDs from tv_mapping match direct layout evaluation."""
         m, n, k = atom.shape_mnk
         c = atom.c_layout
-        tv_map = _compute_tv_mapping(c, grid_cols=n, grid_rows=m,
-                                     col_major=True)
+        tv_map = _compute_tv_mapping(c, grid_cols=n, grid_rows=m, col_major=True)
         # Rebuild the forward map and compare
         num_v = _num_values(c)
         for t in range(64):
@@ -784,40 +851,56 @@ class TestVisualization:
                 offset = c(t, v)
                 row = offset % m
                 col = offset // m
-                assert (row, col) in tv_map, \
-                    f"{atom.name}: ({row},{col}) missing from tv_map"
+                assert (
+                    row,
+                    col,
+                ) in tv_map, f"{atom.name}: ({row},{col}) missing from tv_map"
                 phys_t, v_idx, logical_t = tv_map[(row, col)]
-                assert phys_t == t, \
-                    f"{atom.name}: thread mismatch at ({row},{col}): {phys_t} != {t}"
-                assert v_idx == v, \
-                    f"{atom.name}: value mismatch at ({row},{col}): {v_idx} != {v}"
+                assert (
+                    phys_t == t
+                ), f"{atom.name}: thread mismatch at ({row},{col}): {phys_t} != {t}"
+                assert (
+                    v_idx == v
+                ), f"{atom.name}: value mismatch at ({row},{col}): {v_idx} != {v}"
 
     def test_draw_tv_layout_smoke(self, atom):
         """draw_tv_layout runs without error (output to tempfile)."""
         m, n, k = atom.shape_mnk
         c = atom.c_layout
         with tempfile.NamedTemporaryFile(suffix=".png") as f:
-            draw_tv_layout(c, filename=f.name,
-                           grid_shape=(m, n), colorize=True)
+            draw_tv_layout(c, filename=f.name, grid_shape=(m, n), colorize=True)
 
     def test_draw_mma_layout_smoke(self, atom):
         """draw_mma_layout runs without error."""
         m, n, k = atom.shape_mnk
         with tempfile.NamedTemporaryFile(suffix=".png") as f:
             if atom.name == "CDNA_4x4x4_F32F16F16_MFMA":
-                with pytest.raises(ValueError, match=r"A .*panel shape .*out of bounds"):
-                    draw_mma_layout(atom.a_layout, atom.b_layout, atom.c_layout,
-                                    filename=f.name, tile_mnk=(m, n, k),
-                                    main_title=atom.name)
+                with pytest.raises(
+                    ValueError, match=r"A .*panel shape .*out of bounds"
+                ):
+                    draw_mma_layout(
+                        atom.a_layout,
+                        atom.b_layout,
+                        atom.c_layout,
+                        filename=f.name,
+                        tile_mnk=(m, n, k),
+                        main_title=atom.name,
+                    )
             else:
-                draw_mma_layout(atom.a_layout, atom.b_layout, atom.c_layout,
-                                filename=f.name, tile_mnk=(m, n, k),
-                                main_title=atom.name)
+                draw_mma_layout(
+                    atom.a_layout,
+                    atom.b_layout,
+                    atom.c_layout,
+                    filename=f.name,
+                    tile_mnk=(m, n, k),
+                    main_title=atom.name,
+                )
 
 
 # =============================================================================
 # Layout utils tests
 # =============================================================================
+
 
 @pytest.mark.parametrize("atom", ALL_ATOMS, ids=lambda a: a.name)
 class TestLayoutUtils:
@@ -842,5 +925,6 @@ class TestLayoutUtils:
         # Tile to 2x the original shape
         target = (size(c.shape[0]) * 2, size(c.shape[1]))
         tiled = tile_to_shape(c, target)
-        assert size(tiled) == size(c) * 2, \
-            f"{atom.name}: tile_to_shape wrong size: {size(tiled)} != {size(c) * 2}"
+        assert (
+            size(tiled) == size(c) * 2
+        ), f"{atom.name}: tile_to_shape wrong size: {size(tiled)} != {size(c) * 2}"

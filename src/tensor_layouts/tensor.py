@@ -20,6 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+# ruff: noqa: F403,F405
+
 """Tensor class: combines a Layout with a base offset (pointer equivalent).
 
 In CuTe, a Tensor is (Engine/Pointer, Layout). Here we represent the pointer
@@ -144,8 +146,10 @@ class Tensor:
         if isinstance(key, slice) and key == slice(None):
             # Slice with : (all elements) - return tensor for this mode
             mode_layout = mode(self._layout, mode_idx)
-            return Tensor(Layout(mode_layout.shape, mode_layout.stride,
-                                swizzle=self._layout.swizzle), self._offset)
+            return Tensor(
+                Layout(mode_layout.shape, mode_layout.stride, swizzle=self._layout.swizzle),
+                self._offset,
+            )
         elif isinstance(key, (int, tuple)):
             # Fixed coordinate - compute the linear offset contribution
             return self._fix_mode(mode_idx, key)
@@ -155,9 +159,7 @@ class Tensor:
     def _slice_multi(self, keys: tuple) -> "Tensor | int":
         """Handle multi-dimensional slicing like tensor[i, :]."""
         if len(keys) != rank(self._layout):
-            raise IndexError(
-                f"Expected {rank(self._layout)} indices, got {len(keys)}"
-            )
+            raise IndexError(f"Expected {rank(self._layout)} indices, got {len(keys)}")
 
         fixed_modes = []
         sliced_modes = []
@@ -187,8 +189,11 @@ class Tensor:
             m = mode(self._layout, idx)
             remaining_shapes.append(unwrap(m.shape))
             remaining_strides.append(unwrap(m.stride))
-        return Layout(as_shape(remaining_shapes), as_shape(remaining_strides),
-                     swizzle=self._layout.swizzle)
+        return Layout(
+            as_shape(remaining_shapes),
+            as_shape(remaining_strides),
+            swizzle=self._layout.swizzle,
+        )
 
     def _fix_mode(self, mode_idx: int, coord) -> "Tensor | int":
         """Fix one mode to a specific coordinate value."""

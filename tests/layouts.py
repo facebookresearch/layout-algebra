@@ -22,8 +22,12 @@
 
 import pytest
 
-from tensor_layouts import *
-from tensor_layouts.layout_utils import make_layout_like, make_ordered_layout, tile_to_shape
+from tensor_layouts import * # noqa: F401,F403,F405
+from tensor_layouts.layout_utils import (
+    make_layout_like,
+    make_ordered_layout,
+    tile_to_shape,
+)
 
 
 # These tests roughly follow:
@@ -64,7 +68,7 @@ def test_tuple_single_element():
 
 
 def test_tuple_nested_single_element():
-    t = (((2,)))
+    t = (2,)
     assert len(t) == 1
     assert size(t) == 2
     assert rank(t) == 1
@@ -199,6 +203,31 @@ def test_layout_basic():
     Layout(128, 5)  # Scalar layout
     Layout((16, 12, 512, 512), (0, 0, 1, 512))  # Broadcast layout
     Layout((6, 1, 12, 2, 2), (2, 0, 12, 144, 1))  # Complex layout
+
+
+def test_layout_type_validation():
+    """Layout rejects invalid shape/stride types with clear messages."""
+    # Strings rejected
+    with pytest.raises(TypeError, match="stride.*str"):
+        Layout((4, 2), "row")
+    with pytest.raises(TypeError, match="shape.*str"):
+        Layout("abc")
+
+    # Floats rejected
+    with pytest.raises(TypeError, match="stride.*float"):
+        Layout((4, 2), 1.5)
+    with pytest.raises(TypeError, match="shape.*float"):
+        Layout(3.14)
+
+    # None rejected
+    with pytest.raises(TypeError, match="shape.*NoneType"):
+        Layout(None)
+
+    # Valid constructions still work
+    Layout((4, 2), (1, 4))
+    Layout(((2, 2), 4), ((1, 2), 4))
+    Layout(8)
+    Layout([4, 2])  # lists are fine
 
 
 def test_layout_rank_size_cosize():
@@ -410,9 +439,9 @@ def test_coordinate_validation():
         L([1, 2])
 
     # Valid cases still work
-    assert L(1) == 1          # flat index
-    assert L(1, 2) == 9       # tuple coord via *args
-    assert L((1, 2)) == 9     # tuple coord via single arg
+    assert L(1) == 1  # flat index
+    assert L(1, 2) == 9  # tuple coord via *args
+    assert L((1, 2)) == 9  # tuple coord via single arg
 
 
 def test_idx2crd_crd2flat_crd2offset():
@@ -466,16 +495,16 @@ def test_shape_div_non_divisible():
     (e.g., shape_div/mod won't be complementary), so we assert.
     """
     # Valid cases where divisibility holds
-    assert shape_div(12, 4) == 3     # 12%4==0
-    assert shape_div(4, 12) == 1     # 12%4==0
-    assert shape_div(8, 2) == 4      # 8%2==0
-    assert shape_div(2, 8) == 1      # 8%2==0
+    assert shape_div(12, 4) == 3  # 12%4==0
+    assert shape_div(4, 12) == 1  # 12%4==0
+    assert shape_div(8, 2) == 4  # 8%2==0
+    assert shape_div(2, 8) == 1  # 8%2==0
 
     # Invalid cases should raise ValueError
     with pytest.raises(ValueError):
-        shape_div(6, 4)   # 6%4≠0, 4%6≠0
+        shape_div(6, 4)  # 6%4≠0, 4%6≠0
     with pytest.raises(ValueError):
-        shape_div(4, 6)   # 4%6≠0, 6%4≠0
+        shape_div(4, 6)  # 4%6≠0, 6%4≠0
 
 
 def test_shape_mod_non_divisible():
@@ -489,9 +518,9 @@ def test_shape_mod_non_divisible():
     #   shape_mod(2, 2) = gcd(2,2) = 2
     assert shape_mod((6, 2), 4) == (2, 2)
     # Scalar shape_mod: when modulus < shape, returns gcd
-    assert shape_mod(6, 4) == 2      # gcd(6,4) = 2
+    assert shape_mod(6, 4) == 2  # gcd(6,4) = 2
     # Scalar shape_mod: when modulus >= shape, returns shape
-    assert shape_mod(4, 6) == 4      # 6 >= 4, returns 4
+    assert shape_mod(4, 6) == 4  # 6 >= 4, returns 4
 
 
 def test_shape_div_mod_complementary():
@@ -500,11 +529,15 @@ def test_shape_div_mod_complementary():
     This holds when the divisor evenly divides each mode it consumes.
     """
     test_cases = [
-        ((6, 2), 2), ((6, 2), 3),
-        ((6, 2), 6), ((6, 2), 12),
-        ((4, 3), 2), ((4, 3), 4),
+        ((6, 2), 2),
+        ((6, 2), 3),
+        ((6, 2), 6),
+        ((6, 2), 12),
+        ((4, 3), 2),
+        ((4, 3), 4),
         ((4, 3), 12),
-        ((3, 6, 2, 8), 3), ((3, 6, 2, 8), 9),
+        ((3, 6, 2, 8), 3),
+        ((3, 6, 2, 8), 9),
         ((3, 6, 2, 8), 72),
     ]
     for shape, div in test_cases:
@@ -601,7 +634,9 @@ def test_compose_two_2d():
     # B(0,0)=0, B(1,0)=1, B(0,1)=2, B(1,1)=3
     # A(0)=0, A(1)=1, A(2)=2, A(3)=3
     # So compose gives same result as B indexing into first 4 elements of A
-    assert compose(Layout((4, 4), (1, 4)), Layout((2, 2), (1, 2))) == Layout((2, 2), (1, 2))
+    assert compose(Layout((4, 4), (1, 4)), Layout((2, 2), (1, 2))) == Layout(
+        (2, 2), (1, 2)
+    )
 
 
 def test_compose_functional_equivalence():
@@ -1030,7 +1065,9 @@ def test_core_matrix_operations():
     # For a 2-byte dtype such as f16, core matrix is 8x8
     tile1 = Layout((8, 1), (1, 0))  # (8,1):(1,0)
     mul1 = Layout((1, 8), (0, 1))
-    tile2 = coalesce(blocked_product(tile1, mul1), profile=(None, None))  # (8,8):(1,8) -> One core Matrix
+    tile2 = coalesce(
+        blocked_product(tile1, mul1), profile=(None, None)
+    )  # (8,8):(1,8) -> One core Matrix
     assert tile2 == Layout((8, 8), (1, 8))
     # Now organize core matrices into 8x8 pattern, so that we have a 64x64 Tile, say in SMem
     mul2 = Layout((8, 8), (1, 8))
@@ -1062,7 +1099,74 @@ def test_safe_div():
 def test_tile_repr():
     tiler = Tile(Layout(3, 4), Layout(8, 2))
     r = repr(tiler)
-    assert r == "Tile(3 : 4, 8 : 2)"
+    assert r == "Tile(Layout(3, 4), Layout(8, 2))"
+
+
+## Layout.__repr__ and __str__
+
+
+def test_layout_repr_scalar():
+    """repr() of a 1D layout returns an eval-safe constructor string."""
+    L = Layout(8, 2)
+    assert repr(L) == "Layout(8, 2)"
+
+
+def test_layout_repr_tuple():
+    """repr() of a multi-dimensional layout returns an eval-safe constructor string."""
+    L = Layout((4, 8), (1, 4))
+    assert repr(L) == "Layout((4, 8), (1, 4))"
+
+
+def test_layout_repr_hierarchical():
+    """repr() of a hierarchical layout returns an eval-safe constructor string."""
+    L = Layout(((2, 3), (2, 4)), ((1, 6), (2, 12)))
+    assert repr(L) == "Layout(((2, 3), (2, 4)), ((1, 6), (2, 12)))"
+
+
+def test_layout_repr_swizzled():
+    """repr() of a swizzled layout includes the swizzle keyword argument."""
+    sw = Swizzle(3, 0, 3)
+    L = compose(sw, Layout((8, 8), (8, 1)))
+    r = repr(L)
+    assert r == "Layout((8, 8), (8, 1), swizzle=Swizzle(3, 0, 3))"
+
+
+def test_layout_repr_eval_roundtrip():
+    """eval(repr(L)) reconstructs an equal Layout (the gold standard for repr)."""
+    cases = [
+        Layout(8, 2),
+        Layout((4, 8), (1, 4)),
+        Layout((4, 8), (0, 1)),
+        Layout(((2, 3), (2, 4)), ((1, 6), (2, 12))),
+    ]
+    for L in cases:
+        reconstructed = eval(repr(L))  # noqa: S307
+        assert reconstructed == L, f"Roundtrip failed for {repr(L)}"
+
+
+def test_layout_repr_eval_roundtrip_swizzled():
+    """eval(repr(L)) works for swizzled layouts too."""
+    L = compose(Swizzle(3, 0, 3), Layout((8, 8), (8, 1)))
+    reconstructed = eval(repr(L))  # noqa: S307
+    assert reconstructed == L
+
+
+def test_layout_str_scalar():
+    """str() returns the human-readable CuTe notation."""
+    L = Layout(8, 2)
+    assert str(L) == "8 : 2"
+
+
+def test_layout_str_tuple():
+    """str() returns the human-readable CuTe notation for multi-dim layouts."""
+    L = Layout((4, 8), (1, 4))
+    assert str(L) == "(4, 8) : (1, 4)"
+
+
+def test_layout_str_swizzled():
+    """str() returns the CuTe composition notation for swizzled layouts."""
+    L = compose(Swizzle(3, 0, 3), Layout((8, 8), (8, 1)))
+    assert str(L) == "(Swizzle(3, 0, 3)) o ((8, 8) : (8, 1))"
 
 
 ## Layout.__hash__
@@ -1083,6 +1187,52 @@ def test_layout_hash():
     # Can be used in sets
     s = {L1, L2, L3}
     assert len(s) == 2
+
+
+## Layout.__eq__ identity short-circuit
+
+
+def test_layout_eq_identity_shortcircuit():
+    """Same object identity returns True immediately."""
+    L = Layout((4, 8), (1, 4))
+    assert L == L
+    assert L is L
+
+    sw = Swizzle(3, 0, 3)
+    L_sw = compose(sw, L)
+    assert L_sw == L_sw
+
+
+def test_layout_eq_structural():
+    """Distinct objects with equal shape/stride/swizzle are equal."""
+    L1 = Layout((4, 8), (1, 4))
+    L2 = Layout((4, 8), (1, 4))
+    assert L1 is not L2
+    assert L1 == L2
+
+
+def test_layout_eq_non_layout():
+    """Comparing Layout with non-Layout returns False, not an error."""
+    L = Layout((4, 8), (1, 4))
+    assert L != 42
+    assert L != "not a layout"
+    assert L != (4, 8)
+    assert L != None  # noqa: E711
+
+
+def test_swizzle_eq_identity_shortcircuit():
+    """Same Swizzle identity returns True immediately."""
+    sw = Swizzle(3, 0, 3)
+    assert sw == sw
+    assert sw is sw
+
+
+def test_swizzle_eq_structural():
+    """Distinct Swizzle objects with equal fields are equal."""
+    sw1 = Swizzle(3, 0, 3)
+    sw2 = Swizzle(3, 0, 3)
+    assert sw1 is not sw2
+    assert sw1 == sw2
 
 
 ## compose() functional property
@@ -1142,11 +1292,12 @@ def test_swizzled_layout_eq_hash():
 
 def test_offset_swizzled_layout_basic():
     from tensor_layouts import Tensor
+
     sw_layout = compose(Swizzle(3, 0, 3), Layout((8, 8), (8, 1)))
     tensor = Tensor(sw_layout)
     # Slicing a Tensor produces a Tensor with offset
     row_slice = tensor[3, :]
-    assert hasattr(row_slice, 'offset')
+    assert hasattr(row_slice, "offset")
     assert row_slice.offset == Layout((8, 8), (8, 1))(3, 0)  # = 24
 
     # Check functional correctness: tensor[3, :](j) == tensor(3, j)
@@ -1156,6 +1307,7 @@ def test_offset_swizzled_layout_basic():
 
 def test_offset_swizzled_layout_repr():
     from tensor_layouts import Tensor
+
     sw_layout = compose(Swizzle(3, 0, 3), Layout((8, 8), (8, 1)))
     tensor = Tensor(sw_layout)
     row_slice = tensor[2, :]
@@ -1166,6 +1318,7 @@ def test_offset_swizzled_layout_repr():
 
 def test_offset_swizzled_layout_eq():
     from tensor_layouts import Tensor
+
     sw_layout = compose(Swizzle(3, 0, 3), Layout((8, 8), (8, 1)))
     tensor = Tensor(sw_layout)
     slice1 = tensor[3, :]
@@ -1311,6 +1464,7 @@ def test_tile_to_shape_nested_block():
 
 ## is_layout
 
+
 def test_is_layout():
     assert is_layout(Layout(4, 1)) is True
     assert is_layout(Layout((2, 3), (1, 2))) is True
@@ -1321,6 +1475,7 @@ def test_is_layout():
 
 
 ## unflatten
+
 
 def test_unflatten_tuple():
     # Flat tuple -> nested tuple
@@ -1419,6 +1574,7 @@ def test_make_ordered_layout_scalar():
 
 ## dice_modes
 
+
 def test_dice_modes_scalar_coord():
     # Scalar coord: identity (keep everything)
     layout = Layout((3, 4), (1, 4))
@@ -1475,6 +1631,7 @@ def test_dice_modes_complement_of_slice_modes():
 
 
 ## nullspace
+
 
 def test_nullspace_all_zero_strides():
     # All stride-0: everything is in the kernel
@@ -1543,6 +1700,7 @@ def test_nullspace_scalar_zero_stride():
 
 ## max_common_vector and max_common_layout
 
+
 def test_max_common_vector_identical():
     # Same layout: all elements are common
     a = Layout(8, 1)
@@ -1586,6 +1744,7 @@ def test_max_common_layout_partial():
 
 ## flat_product
 
+
 def test_flat_product_basic():
     # flat_product = zipped_product then unpack both modes
     block = Layout(4, 1)
@@ -1611,6 +1770,7 @@ def test_flat_product_2d():
 
 
 ## raked_product
+
 
 def test_raked_product_basic():
     # raked_product vs blocked_product: reversed zip order
@@ -1726,8 +1886,11 @@ def test_upcast_known_copy_atoms():
     derived from the CUTLASS C++ copy_traits_sm75.hpp source.
     """
     from tensor_layouts.atoms_nv import (
-        SM75_U32x1_LDSM_N, SM75_U32x4_LDSM_N,
-        SM75_U16x2_LDSM_T, SM75_U16x4_LDSM_T, SM75_U16x8_LDSM_T,
+        SM75_U32x1_LDSM_N,
+        SM75_U32x4_LDSM_N,
+        SM75_U16x2_LDSM_T,
+        SM75_U16x4_LDSM_T,
+        SM75_U16x8_LDSM_T,
     )
 
     cases = [
@@ -1741,12 +1904,12 @@ def test_upcast_known_copy_atoms():
 
     for atom, exp_shape, exp_stride in cases:
         result = upcast(atom.dst_layout_bits, 16)
-        assert result.shape == exp_shape, (
-            f"{atom.name}: shape {result.shape} != expected {exp_shape}"
-        )
-        assert result.stride == exp_stride, (
-            f"{atom.name}: stride {result.stride} != expected {exp_stride}"
-        )
+        assert (
+            result.shape == exp_shape
+        ), f"{atom.name}: shape {result.shape} != expected {exp_shape}"
+        assert (
+            result.stride == exp_stride
+        ), f"{atom.name}: stride {result.stride} != expected {exp_stride}"
 
 
 def test_downcast_simple():
@@ -1807,9 +1970,12 @@ def test_iter_layout_2d_col_major():
     layout = Layout((2, 3), (1, 2))
     result = list(iter_layout(layout))
     expected = [
-        ((0, 0), 0), ((1, 0), 1),   # col 0
-        ((0, 1), 2), ((1, 1), 3),   # col 1
-        ((0, 2), 4), ((1, 2), 5),   # col 2
+        ((0, 0), 0),
+        ((1, 0), 1),  # col 0
+        ((0, 1), 2),
+        ((1, 1), 3),  # col 1
+        ((0, 2), 4),
+        ((1, 2), 5),  # col 2
     ]
     assert result == expected
 

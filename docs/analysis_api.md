@@ -1,3 +1,27 @@
+<!--
+MIT License
+
+Copyright (c) 2026 Meta Platforms, Inc. and affiliates.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+-->
+
 # Analysis API
 
 GPU kernel performance lives or dies by memory access patterns.  Two
@@ -44,7 +68,7 @@ offset_table(Layout((4, 2), (0, 1)))
 #  1: [(0,1), (1,1), (2,1), (3,1)]}
 ```
 
-## bank_conflicts(layout, *, num_banks=32, element_bytes=2, bank_width_bytes=4, group_size=32)
+## bank_conflicts(layout, *, element_bytes, num_banks=32, bank_width_bytes=4, group_size=32)
 
 Analyze shared memory bank conflicts for a thread-to-offset layout.
 
@@ -75,6 +99,18 @@ The `max_ways` value is the worst-case serialization factor: 1 means no
 conflicts, N means N-way serialization.  Two threads accessing the
 *same* word get a broadcast (no conflict on NVIDIA hardware).
 
+For multi-mode (TV) layouts where mode 0 is the thread dimension and
+mode 1+ are value dimensions, all values per thread are included in the
+analysis.  This models vectorized loads where each thread accesses
+multiple elements:
+
+```python
+# TV layout: 32 threads, each loading 2 fp16 elements
+tv = Layout((32, 2), (1, 32))
+result = bank_conflicts(tv, element_bytes=2)
+result['conflict_free']  # True: values land in distinct banks
+```
+
 Returns a dict:
 
 | Key | Type | Description |
@@ -83,7 +119,7 @@ Returns a dict:
 | `max_ways` | int | Worst-case serialization factor across all banks |
 | `bank_to_threads` | dict | `{bank_id: [thread_ids...]}` for all accessed banks |
 
-## coalescing_efficiency(layout, *, warp_size=32, element_bytes=2, cache_line_bytes=128)
+## coalescing_efficiency(layout, *, element_bytes, warp_size=32, cache_line_bytes=128)
 
 Analyze global memory coalescing for a thread-to-offset layout.
 
@@ -98,7 +134,7 @@ result['transactions']  # 1
 result['efficiency']    # 1.0  (128 unique useful bytes / 128 transferred)
 
 # Worst case: each thread hits a separate cache line
-result = coalescing_efficiency(Layout(32, 64))
+result = coalescing_efficiency(Layout(32, 64), element_bytes=2)
 result['transactions']  # 32
 result['efficiency']    # 0.016  (64 unique useful bytes / 4096 transferred)
 ```
@@ -110,6 +146,17 @@ Returns a dict:
 | `transactions` | int | Number of cache line fetches needed |
 | `efficiency` | float | Unique useful bytes / transferred bytes (1.0 = perfect) |
 | `cache_lines` | list | Sorted cache line indices touched |
+
+For multi-mode (TV) layouts, all values per thread are included,
+modeling vectorized loads:
+
+```python
+# TV layout: 32 threads, 4 values each, contiguous within each thread
+tv = Layout((32, 4), (4, 1))
+result = coalescing_efficiency(tv, element_bytes=2)
+result['transactions']  # 2  (256 bytes spans 2 cache lines)
+result['efficiency']    # 1.0  (256 unique bytes / 256 transferred)
+```
 
 ## Permutation Analysis
 

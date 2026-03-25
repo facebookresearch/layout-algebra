@@ -20,6 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+# ruff: noqa: F403,F405
+
 """Convenience utilities for working with CuTe layouts.
 
 These functions provide higher-level operations built on top of the core
@@ -106,9 +108,7 @@ def tile_to_shape(layout: Layout, target_shape, order: tuple = None) -> Layout:
 
     block_shape = product_each(layout.shape)
 
-    product_shape = tuple(
-        (t + b - 1) // b for t, b in zip(target_shape, block_shape)
-    )
+    product_shape = tuple((t + b - 1) // b for t, b in zip(target_shape, block_shape))
 
     replication = make_ordered_layout(product_shape, order)
 
@@ -165,7 +165,8 @@ def make_layout_like(layout: Layout, tiler) -> Layout:
     result_strides = get_strides_for_shape(tiler_shape)
     return Layout(tiler_shape, result_strides)
 
-def tile_mma_grid(atom, atom_layout, matrix='C', tile_mnk=None):
+
+def tile_mma_grid(atom, atom_layout, matrix="C", tile_mnk=None):
     """Compute the tiled MMA grid by replicating an atom across quadpairs.
 
     Mirrors the C++ make_tiled_mma(atom, atom_layout, Tile<M,N,K>) function.
@@ -206,17 +207,17 @@ def tile_mma_grid(atom, atom_layout, matrix='C', tile_mnk=None):
     qp_offset = n_thr_per_atom // 2 if thr_id is not None else n_thr_per_atom
 
     # Select atom layout and tile dimensions based on matrix
-    if matrix == 'C':
+    if matrix == "C":
         atom_lyt = atom.c_layout
         row_atoms = n_atoms_m
         col_atoms = n_atoms_n
         atom_rows, atom_cols = M_atom, N_atom
-    elif matrix == 'A':
+    elif matrix == "A":
         atom_lyt = atom.a_layout
         row_atoms = n_atoms_m
         col_atoms = 1
         atom_rows, atom_cols = M_atom, K_atom
-    elif matrix == 'B':
+    elif matrix == "B":
         atom_lyt = atom.b_layout
         row_atoms = n_atoms_n
         col_atoms = 1
@@ -233,9 +234,9 @@ def tile_mma_grid(atom, atom_layout, matrix='C', tile_mnk=None):
     for am in range(row_atoms):
         for an in range(col_atoms):
             # Determine atom index from the atom_layout
-            if matrix == 'C':
+            if matrix == "C":
                 atom_idx = atom_layout((am, an)) if not is_int(atom_shape) else am
-            elif matrix == 'A':
+            elif matrix == "A":
                 # A tiles along M only; use first N-column atom
                 atom_idx = atom_layout((am, 0)) if not is_int(atom_shape) else am
             else:  # B
@@ -268,10 +269,10 @@ def tile_mma_grid(atom, atom_layout, matrix='C', tile_mnk=None):
     if tile_mnk is not None:
         tile_M, tile_N, tile_K = tile_mnk
 
-        if matrix == 'C':
+        if matrix == "C":
             rep_m = tile_M // nat_M
             rep_n = tile_N // nat_N
-        elif matrix == 'A':
+        elif matrix == "A":
             rep_m = tile_M // nat_M
             rep_n = 1
         else:  # B

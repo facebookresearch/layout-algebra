@@ -22,7 +22,7 @@
 
 """Pure-Python implementation of GPU layout algebra."""
 
-from .layouts import *  # noqa: F401,F403
+from .layouts import *  # noqa: F401,F403,F405
 from .tensor import Tensor  # noqa: F401
 from .atoms import MMAAtom, CopyAtom  # noqa: F401
 

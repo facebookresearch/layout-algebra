@@ -21,6 +21,7 @@ htmlcov/
 .idea/
 *.swp
 *.swo
+.arclint
 
 # OS
 .DS_Store

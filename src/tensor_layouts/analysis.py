@@ -20,6 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+# ruff: noqa: F405
+
 """GPU layout analysis: bank conflicts, coalescing, permutation structure.
 
 These functions analyze layouts in GPU-specific contexts --- shared memory
@@ -58,6 +60,7 @@ __all__ = [
 # =============================================================================
 # Inverse mapping
 # =============================================================================
+
 
 def offset_table(layout: Layout) -> dict:
     """Return {offset: [coord, ...]} mapping each offset to its coordinates.
@@ -122,13 +125,13 @@ def footprint(layout: Layout) -> dict:
     span = max_off - min_off + 1 if offsets else 0
 
     return {
-        'min_offset': min_off,
-        'max_offset': max_off,
-        'span': span,
-        'unique_offsets': n_unique,
-        'total_elements': n_total,
-        'reuse_factor': n_total / n_unique if n_unique > 0 else 0.0,
-        'holes': span - n_unique,
+        "min_offset": min_off,
+        "max_offset": max_off,
+        "span": span,
+        "unique_offsets": n_unique,
+        "total_elements": n_total,
+        "reuse_factor": n_total / n_unique if n_unique > 0 else 0.0,
+        "holes": span - n_unique,
     }
 
 
@@ -136,9 +139,15 @@ def footprint(layout: Layout) -> dict:
 # Bank conflict analysis
 # =============================================================================
 
-def bank_conflicts(layout: Layout, *, num_banks: int = 32,
-                   element_bytes: int = 2, bank_width_bytes: int = 4,
-                   group_size: int = 32):
+
+def bank_conflicts(
+    layout: Layout,
+    *,
+    element_bytes: int,
+    num_banks: int = 32,
+    bank_width_bytes: int = 4,
+    group_size: int = 32,
+):
     """Analyze shared memory bank conflicts for a thread-to-offset layout.
 
     Given a layout that maps thread indices to shared memory offsets,
@@ -153,8 +162,11 @@ def bank_conflicts(layout: Layout, *, num_banks: int = 32,
     Only the first ``group_size`` threads are analyzed, matching the
     hardware issue granularity (warp on NVIDIA, wavefront on AMD).
     This avoids overstating conflicts when the layout spans multiple
-    warps.  The model assigns each access to its starting bank word;
-    accesses wider than one bank word are not tracked across banks.
+    warps.
+
+    For multi-mode (TV) layouts, mode 0 is the thread dimension and all
+    remaining modes are value dimensions.  Each thread's accesses across
+    all values are included in the analysis, modeling vectorized loads.
 
     Args:
         layout: Maps thread_id -> memory offset (in elements).
@@ -171,29 +183,32 @@ def bank_conflicts(layout: Layout, *, num_banks: int = 32,
             bank_to_threads: {bank_id: [thread_ids...]} for all accessed banks
 
     Examples:
-        # Linear layout: threads access consecutive elements
-        bank_conflicts(Layout(32, 1))
+        # Linear layout: threads access consecutive fp16 elements
+        bank_conflicts(Layout(32, 1), element_bytes=2)
         # {'conflict_free': True, 'max_ways': 1, ...}
 
         # All threads hit the same address
-        bank_conflicts(Layout(32, 0))
+        bank_conflicts(Layout(32, 0), element_bytes=2)
         # {'conflict_free': True, 'max_ways': 1, ...}  (broadcast, not a conflict)
     """
     layout = as_layout(layout)
     if group_size <= 0:
         raise ValueError(f"group_size must be positive, got {group_size}")
-    n = min(size(layout), group_size)
+    thread_count, value_count = _tv_dimensions(layout)
+    n = min(thread_count, group_size)
 
     # Map each thread to (bank, word_address)
     # A bank conflict occurs when threads access different 4-byte words in the
     # same bank.  Two threads accessing the same word get a broadcast (no conflict).
     thread_banks = {}  # bank -> [(thread_id, word_address), ...]
     for t in range(n):
-        offset = layout(t)
-        byte_addr = offset * element_bytes
-        word_addr = byte_addr // bank_width_bytes
-        bank = word_addr % num_banks
-        thread_banks.setdefault(bank, []).append((t, word_addr))
+        for v in range(value_count):
+            flat_idx = v * thread_count + t
+            offset = layout(flat_idx)
+            byte_addr = offset * element_bytes
+            word_addr = byte_addr // bank_width_bytes
+            bank = word_addr % num_banks
+            thread_banks.setdefault(bank, []).append((t, word_addr))
 
     # Compute conflicts per bank
     # Two threads conflict if they hit the same bank but different addresses.
@@ -215,9 +230,9 @@ def bank_conflicts(layout: Layout, *, num_banks: int = 32,
             max_ways = ways
 
     return {
-        'conflict_free': max_ways <= 1,
-        'max_ways': max_ways,
-        'bank_to_threads': bank_to_threads,
+        "conflict_free": max_ways <= 1,
+        "max_ways": max_ways,
+        "bank_to_threads": bank_to_threads,
     }
 
 
@@ -225,9 +240,14 @@ def bank_conflicts(layout: Layout, *, num_banks: int = 32,
 # Coalescing analysis
 # =============================================================================
 
-def coalescing_efficiency(layout: Layout, *, warp_size: int = 32,
-                          element_bytes: int = 2,
-                          cache_line_bytes: int = 128):
+
+def coalescing_efficiency(
+    layout: Layout,
+    *,
+    element_bytes: int,
+    warp_size: int = 32,
+    cache_line_bytes: int = 128,
+):
     """Analyze global memory coalescing for a thread-to-offset layout.
 
     Given a layout that maps thread indices to global memory offsets,
@@ -238,6 +258,10 @@ def coalescing_efficiency(layout: Layout, *, warp_size: int = 32,
     32 consecutive elements within a single cache line, requiring one
     transaction.  In the worst case, each thread triggers a separate
     transaction.
+
+    For multi-mode (TV) layouts, mode 0 is the thread dimension and all
+    remaining modes are value dimensions.  Each thread's accesses across
+    all values are included in the analysis, modeling vectorized loads.
 
     Args:
         layout: Maps thread_id -> memory offset (in elements).
@@ -255,25 +279,28 @@ def coalescing_efficiency(layout: Layout, *, warp_size: int = 32,
 
     Examples:
         # Perfectly coalesced: 32 threads, stride 1, fp16
-        coalescing_efficiency(Layout(32, 1))
+        coalescing_efficiency(Layout(32, 1), element_bytes=2)
         # {'transactions': 1, 'efficiency': 0.5, ...}  -- 64B used of 128B line
 
-        # Strided access: each thread 2 elements apart
-        coalescing_efficiency(Layout(32, 2))
+        # Strided access: each thread 2 elements apart, fp32
+        coalescing_efficiency(Layout(32, 2), element_bytes=4)
         # {'transactions': 2, 'efficiency': 0.5, ...}
     """
     layout = as_layout(layout)
-    n = min(size(layout), warp_size)
+    thread_count, value_count = _tv_dimensions(layout)
+    n = min(thread_count, warp_size)
 
     # Find which cache lines are touched and count unique offsets
     cache_lines = set()
     unique_offsets = set()
     for t in range(n):
-        offset = layout(t)
-        unique_offsets.add(offset)
-        byte_addr = offset * element_bytes
-        cache_line = byte_addr // cache_line_bytes
-        cache_lines.add(cache_line)
+        for v in range(value_count):
+            flat_idx = v * thread_count + t
+            offset = layout(flat_idx)
+            unique_offsets.add(offset)
+            byte_addr = offset * element_bytes
+            cache_line = byte_addr // cache_line_bytes
+            cache_lines.add(cache_line)
 
     transactions = len(cache_lines)
     useful_bytes = len(unique_offsets) * element_bytes
@@ -281,22 +308,30 @@ def coalescing_efficiency(layout: Layout, *, warp_size: int = 32,
     efficiency = useful_bytes / transferred_bytes if transferred_bytes > 0 else 0.0
 
     return {
-        'transactions': transactions,
-        'efficiency': efficiency,
-        'cache_lines': sorted(cache_lines),
+        "transactions": transactions,
+        "efficiency": efficiency,
+        "cache_lines": sorted(cache_lines),
     }
 
 
-def segment_analysis(layout: Layout, *, warp_size: int = 32,
-                      element_bytes: int = 2,
-                      segment_bytes: int = 32,
-                      cache_line_bytes: int = 128):
+def segment_analysis(
+    layout: Layout,
+    *,
+    element_bytes: int,
+    warp_size: int = 32,
+    segment_bytes: int = 32,
+    cache_line_bytes: int = 128,
+):
     """Segment- and alignment-aware global memory transaction analysis.
 
     A more detailed model than ``coalescing_efficiency()``.  NVIDIA GPUs
     transfer memory in 32-byte segments within 128-byte cache lines.  A
     warp access may touch fewer cache lines than segments when accesses
     cluster within a line but span multiple segments.
+
+    For multi-mode (TV) layouts, mode 0 is the thread dimension and all
+    remaining modes are value dimensions.  Each thread's accesses across
+    all values are included in the analysis, modeling vectorized loads.
 
     Args:
         layout: Maps thread_id -> memory offset (in elements).
@@ -317,7 +352,8 @@ def segment_analysis(layout: Layout, *, warp_size: int = 32,
             first_alignment: alignment of first_byte_addr to segment_bytes
     """
     layout = as_layout(layout)
-    n = min(size(layout), warp_size)
+    thread_count, value_count = _tv_dimensions(layout)
+    n = min(thread_count, warp_size)
 
     segments = set()
     lines = set()
@@ -325,30 +361,32 @@ def segment_analysis(layout: Layout, *, warp_size: int = 32,
     first_byte = None
 
     for t in range(n):
-        offset = layout(t)
-        unique_offsets.add(offset)
-        byte_addr = offset * element_bytes
-        if first_byte is None:
-            first_byte = byte_addr
-        segments.add(byte_addr // segment_bytes)
-        lines.add(byte_addr // cache_line_bytes)
+        for v in range(value_count):
+            flat_idx = v * thread_count + t
+            offset = layout(flat_idx)
+            unique_offsets.add(offset)
+            byte_addr = offset * element_bytes
+            if first_byte is None:
+                first_byte = byte_addr
+            segments.add(byte_addr // segment_bytes)
+            lines.add(byte_addr // cache_line_bytes)
 
     first_byte = first_byte if first_byte is not None else 0
     n_segments = len(segments)
     n_lines = len(lines)
     unique_bytes = len(unique_offsets) * element_bytes
-    requested_bytes = n * element_bytes
+    requested_bytes = n * value_count * element_bytes
     transferred_bytes = n_segments * segment_bytes
 
     return {
-        'segments': n_segments,
-        'cache_lines': n_lines,
-        'unique_bytes': unique_bytes,
-        'requested_bytes': requested_bytes,
-        'transferred_bytes': transferred_bytes,
-        'segment_efficiency': unique_bytes / transferred_bytes if transferred_bytes > 0 else 0.0,
-        'first_byte_addr': first_byte,
-        'first_alignment': first_byte % segment_bytes,
+        "segments": n_segments,
+        "cache_lines": n_lines,
+        "unique_bytes": unique_bytes,
+        "requested_bytes": requested_bytes,
+        "transferred_bytes": transferred_bytes,
+        "segment_efficiency": (unique_bytes / transferred_bytes if transferred_bytes > 0 else 0.0),
+        "first_byte_addr": first_byte,
+        "first_alignment": first_byte % segment_bytes,
     }
 
 
@@ -356,13 +394,35 @@ def segment_analysis(layout: Layout, *, warp_size: int = 32,
 # Per-group analysis
 # =============================================================================
 
-def per_group_bank_conflicts(layout: Layout, *, group_size: int = 32,
-                              num_banks: int = 32, element_bytes: int = 2,
-                              bank_width_bytes: int = 4) -> dict:
+
+def _tv_dimensions(layout: Layout):
+    """Extract (thread_count, value_count) from a layout.
+
+    For rank-1 (scalar shape) layouts: thread_count = size, value_count = 1.
+    For rank>1 (TV) layouts: thread_count = size(mode 0), value_count =
+    product of remaining modes.
+    """
+    if is_int(layout.shape):
+        return size(layout), 1
+    return size(mode(layout, 0)), size(layout) // size(mode(layout, 0))
+
+
+def per_group_bank_conflicts(
+    layout: Layout,
+    *,
+    element_bytes: int,
+    group_size: int = 32,
+    num_banks: int = 32,
+    bank_width_bytes: int = 4,
+) -> dict:
     """Analyze bank conflicts per warp/wavefront group across a full layout.
 
     Splits the layout into groups of ``group_size`` threads and analyzes
     bank conflicts for each group independently.
+
+    For multi-mode (TV) layouts, groups are formed along mode 0 (the thread
+    dimension).  Each thread's accesses across all value modes (mode 1+) are
+    included in its group's analysis.
 
     Args:
         layout: Maps thread_id -> memory offset (in elements).
@@ -381,8 +441,8 @@ def per_group_bank_conflicts(layout: Layout, *, group_size: int = 32,
     layout = as_layout(layout)
     if group_size <= 0:
         raise ValueError(f"group_size must be positive, got {group_size}")
-    n = size(layout)
-    num_groups = (n + group_size - 1) // group_size
+    thread_count, value_count = _tv_dimensions(layout)
+    num_groups = (thread_count + group_size - 1) // group_size
 
     groups = []
     worst_idx = 0
@@ -390,15 +450,17 @@ def per_group_bank_conflicts(layout: Layout, *, group_size: int = 32,
 
     for g in range(num_groups):
         start = g * group_size
-        end = min(start + group_size, n)
+        end = min(start + group_size, thread_count)
 
         thread_banks = {}
         for t in range(start, end):
-            offset = layout(t)
-            byte_addr = offset * element_bytes
-            word_addr = byte_addr // bank_width_bytes
-            bank = word_addr % num_banks
-            thread_banks.setdefault(bank, []).append((t, word_addr))
+            for v in range(value_count):
+                flat_idx = v * thread_count + t
+                offset = layout(flat_idx)
+                byte_addr = offset * element_bytes
+                word_addr = byte_addr // bank_width_bytes
+                bank = word_addr % num_banks
+                thread_banks.setdefault(bank, []).append((t, word_addr))
 
         max_ways = 1
         bank_to_threads = {}
@@ -412,9 +474,9 @@ def per_group_bank_conflicts(layout: Layout, *, group_size: int = 32,
                 max_ways = ways
 
         result = {
-            'conflict_free': max_ways <= 1,
-            'max_ways': max_ways,
-            'bank_to_threads': bank_to_threads,
+            "conflict_free": max_ways <= 1,
+            "max_ways": max_ways,
+            "bank_to_threads": bank_to_threads,
         }
         groups.append(result)
         if max_ways > worst_ways:
@@ -422,19 +484,27 @@ def per_group_bank_conflicts(layout: Layout, *, group_size: int = 32,
             worst_idx = g
 
     return {
-        'groups': groups,
-        'worst_group': worst_idx,
-        'worst_max_ways': worst_ways,
+        "groups": groups,
+        "worst_group": worst_idx,
+        "worst_max_ways": worst_ways,
     }
 
 
-def per_group_coalescing(layout: Layout, *, group_size: int = 32,
-                          element_bytes: int = 2,
-                          cache_line_bytes: int = 128) -> dict:
+def per_group_coalescing(
+    layout: Layout,
+    *,
+    element_bytes: int,
+    group_size: int = 32,
+    cache_line_bytes: int = 128,
+) -> dict:
     """Analyze coalescing efficiency per warp/wavefront group across a full layout.
 
     Splits the layout into groups of ``group_size`` threads and analyzes
     coalescing for each group independently.
+
+    For multi-mode (TV) layouts, groups are formed along mode 0 (the thread
+    dimension).  Each thread's accesses across all value modes (mode 1+) are
+    included in its group's analysis.
 
     Args:
         layout: Maps thread_id -> memory offset (in elements).
@@ -451,25 +521,27 @@ def per_group_coalescing(layout: Layout, *, group_size: int = 32,
     layout = as_layout(layout)
     if group_size <= 0:
         raise ValueError(f"group_size must be positive, got {group_size}")
-    n = size(layout)
-    num_groups = (n + group_size - 1) // group_size
+    thread_count, value_count = _tv_dimensions(layout)
+    num_groups = (thread_count + group_size - 1) // group_size
 
     groups = []
     worst_idx = 0
-    worst_eff = float('inf')
+    worst_eff = float("inf")
 
     for g in range(num_groups):
         start = g * group_size
-        end = min(start + group_size, n)
+        end = min(start + group_size, thread_count)
 
         cache_lines = set()
         unique_offsets = set()
         for t in range(start, end):
-            offset = layout(t)
-            unique_offsets.add(offset)
-            byte_addr = offset * element_bytes
-            cache_line = byte_addr // cache_line_bytes
-            cache_lines.add(cache_line)
+            for v in range(value_count):
+                flat_idx = v * thread_count + t
+                offset = layout(flat_idx)
+                unique_offsets.add(offset)
+                byte_addr = offset * element_bytes
+                cache_line = byte_addr // cache_line_bytes
+                cache_lines.add(cache_line)
 
         transactions = len(cache_lines)
         useful_bytes = len(unique_offsets) * element_bytes
@@ -477,9 +549,9 @@ def per_group_coalescing(layout: Layout, *, group_size: int = 32,
         efficiency = useful_bytes / transferred_bytes if transferred_bytes > 0 else 0.0
 
         result = {
-            'transactions': transactions,
-            'efficiency': efficiency,
-            'cache_lines': sorted(cache_lines),
+            "transactions": transactions,
+            "efficiency": efficiency,
+            "cache_lines": sorted(cache_lines),
         }
         groups.append(result)
         if efficiency < worst_eff:
@@ -487,15 +559,16 @@ def per_group_coalescing(layout: Layout, *, group_size: int = 32,
             worst_idx = g
 
     return {
-        'groups': groups,
-        'worst_group': worst_idx,
-        'worst_efficiency': worst_eff,
+        "groups": groups,
+        "worst_group": worst_idx,
+        "worst_efficiency": worst_eff,
     }
 
 
 # =============================================================================
 # Permutation analysis
 # =============================================================================
+
 
 def cycles(layout: Layout) -> list:
     """Return the cycle decomposition of a bijective layout.
@@ -587,6 +660,7 @@ def order(layout: Layout) -> int:
 # Contiguity
 # =============================================================================
 
+
 def contiguity(layout: Layout) -> int:
     """Return the longest contiguous vector width from the start of the layout.
 
@@ -676,6 +750,7 @@ def slice_contiguity(layout: Layout, coord) -> int:
 # Atom analysis
 # =============================================================================
 
+
 def atom_summary(atom: MMAAtom) -> dict:
     """Summarize an MMA atom's key properties.
 
@@ -718,40 +793,39 @@ def atom_summary(atom: MMAAtom) -> dict:
         for v in range(num_v):
             c_offset_list.append(atom.c_layout(t, v))
     c_offsets = set(c_offset_list)
-    c_coverage_ok = (c_offsets == set(range(M * N))
-                     and len(c_offset_list) == M * N)
+    c_coverage_ok = c_offsets == set(range(M * N)) and len(c_offset_list) == M * N
 
     # Check for broadcast (stride-0) in A and B
     a_broadcast = atom.a_layout.filter() != atom.a_layout
     b_broadcast = atom.b_layout.filter() != atom.b_layout
 
     result = {
-        'name': atom.name,
-        'shape_mnk': atom.shape_mnk,
-        'threads': threads,
-        'values_a': values_a,
-        'values_b': values_b,
-        'values_c': values_c,
-        'c_coverage_ok': c_coverage_ok,
-        'a_broadcast': a_broadcast,
-        'b_broadcast': b_broadcast,
+        "name": atom.name,
+        "shape_mnk": atom.shape_mnk,
+        "threads": threads,
+        "values_a": values_a,
+        "values_b": values_b,
+        "values_c": values_c,
+        "c_coverage_ok": c_coverage_ok,
+        "a_broadcast": a_broadcast,
+        "b_broadcast": b_broadcast,
     }
 
     lines = [
         atom.name,
-        f'  Shape (M, N, K): {M} x {N} x {K}',
-        f'  Threads:          {threads}',
-        f'  Values per thread: A={values_a}, B={values_b}, C={values_c}',
-        f'  C covers M*N:     {c_coverage_ok}',
+        f"  Shape (M, N, K): {M} x {N} x {K}",
+        f"  Threads:          {threads}",
+        f"  Values per thread: A={values_a}, B={values_b}, C={values_c}",
+        f"  C covers M*N:     {c_coverage_ok}",
     ]
     if a_broadcast:
-        lines.append(f'  A has broadcast (stride-0) modes')
+        lines.append("  A has broadcast (stride-0) modes")
     if b_broadcast:
-        lines.append(f'  B has broadcast (stride-0) modes')
+        lines.append("  B has broadcast (stride-0) modes")
 
-    text = '\n'.join(lines)
+    text = "\n".join(lines)
     print(text)
-    result['text'] = text
+    result["text"] = text
     return result
 
 
@@ -773,14 +847,14 @@ def _operand_coverage(layout: Layout, domain_size: int) -> dict:
     duplicates = total_accesses - len(unique)
 
     return {
-        'domain_size': domain_size,
-        'unique_offsets': len(unique),
-        'total_accesses': total_accesses,
-        'duplicates': duplicates,
-        'coverage_ok': unique == expected,
-        'missing': sorted(missing) if missing else [],
-        'extra': sorted(extra) if extra else [],
-        'thread_utilization': len(unique) / total_accesses if total_accesses > 0 else 0.0,
+        "domain_size": domain_size,
+        "unique_offsets": len(unique),
+        "total_accesses": total_accesses,
+        "duplicates": duplicates,
+        "coverage_ok": unique == expected,
+        "missing": sorted(missing) if missing else [],
+        "extra": sorted(extra) if extra else [],
+        "thread_utilization": (len(unique) / total_accesses if total_accesses > 0 else 0.0),
     }
 
 
@@ -807,15 +881,16 @@ def operand_analysis(atom: MMAAtom) -> dict:
     M, N, K = atom.shape_mnk
 
     return {
-        'a': _operand_coverage(atom.a_layout, M * K),
-        'b': _operand_coverage(atom.b_layout, N * K),
-        'c': _operand_coverage(atom.c_layout, M * N),
+        "a": _operand_coverage(atom.a_layout, M * K),
+        "b": _operand_coverage(atom.b_layout, N * K),
+        "c": _operand_coverage(atom.c_layout, M * N),
     }
 
 
 # =============================================================================
 # Algebra explanation
 # =============================================================================
+
 
 def explain(fn, *args):
     """Show step-by-step how an algebra operation computes its result.
@@ -837,175 +912,189 @@ def explain(fn, *args):
     name = fn.__name__
     lines = []
 
-    if name == 'logical_divide':
+    if name == "logical_divide":
         L, T = args
         if isinstance(T, int):
             T = Layout(T)
-        lines.append(f'logical_divide({L}, {T})')
+        lines.append(f"logical_divide({L}, {T})")
         actual = logical_divide(L, T)
 
         if is_layout(T):
-            lines.append(f'  = compose(L, Layout(T, complement(T, size(L))))')
-            lines.append(f'')
-            lines.append(f'  L = {L}')
-            lines.append(f'  T = {T}')
-            lines.append(f'  size(L) = {size(L)}')
+            lines.append("  = compose(L, Layout(T, complement(T, size(L))))")
+            lines.append("")
+            lines.append(f"  L = {L}")
+            lines.append(f"  T = {T}")
+            lines.append(f"  size(L) = {size(L)}")
             comp = complement(T, size(L))
-            lines.append(f'  complement(T, {size(L)}) = {comp}')
+            lines.append(f"  complement(T, {size(L)}) = {comp}")
             intermediate = Layout(T, comp)
-            lines.append(f'  Layout(T, complement) = {intermediate}')
+            lines.append(f"  Layout(T, complement) = {intermediate}")
             result = compose(L, intermediate)
-            lines.append(f'  compose(L, {intermediate}) = {result}')
+            lines.append(f"  compose(L, {intermediate}) = {result}")
         else:
-            lines.append(f'  Divides each mode of L by the corresponding tiler element.')
-            lines.append(f'')
-            lines.append(f'  L = {L}')
-            lines.append(f'  T = {T}')
+            lines.append("  Divides each mode of L by the corresponding tiler element.")
+            lines.append("")
+            lines.append(f"  L = {L}")
+            lines.append(f"  T = {T}")
 
-        lines.append(f'')
-        lines.append(f'  result = {actual}')
+        lines.append("")
+        lines.append(f"  result = {actual}")
 
-    elif name == 'logical_product':
+    elif name == "logical_product":
         A, B = args
         if isinstance(B, int):
             B = Layout(B)
-        lines.append(f'logical_product({A}, {B})')
-        lines.append(f'  = Layout(A, compose(complement(A, size(A)*size(B)), B))')
-        lines.append(f'')
-        lines.append(f'  A = {A}')
-        lines.append(f'  B = {B}')
-        bound = size(A) * size(B)
-        lines.append(f'  size(A) * size(B) = {bound}')
-        comp = complement(A, bound)
-        lines.append(f'  complement(A, {bound}) = {comp}')
-        comp_b = compose(comp, B)
-        lines.append(f'  compose(complement, B) = {comp_b}')
-        result = Layout(A, comp_b)
-        lines.append(f'  Layout(A, {comp_b}) = {result}')
-        lines.append(f'')
-        actual = logical_product(A, B)
-        lines.append(f'  result = {actual}')
+        lines.append(f"logical_product({A}, {B})")
 
-    elif name == 'complement':
+        if is_layout(B):
+            lines.append("  = Layout(A, compose(complement(A, size(A)*size(B)), B))")
+            lines.append("")
+            lines.append(f"  A = {A}")
+            lines.append(f"  B = {B}")
+            bound = size(A) * size(B)
+            lines.append(f"  size(A) * size(B) = {bound}")
+            comp = complement(A, bound)
+            lines.append(f"  complement(A, {bound}) = {comp}")
+            comp_b = compose(comp, B)
+            lines.append(f"  compose(complement, B) = {comp_b}")
+            result = Layout(A, comp_b)
+            lines.append(f"  Layout(A, {comp_b}) = {result}")
+        else:
+            # Tuple tiler: mode-by-mode decomposition
+            lines.append("  For tuple tilers, applies logical_product mode-by-mode.")
+            lines.append("")
+            lines.append(f"  A = {A}")
+            lines.append(f"  B = {B}")
+            for i in range(len(B)):
+                mi = mode(A, i)
+                bi = B[i]
+                ri = logical_product(mi, bi)
+                lines.append(f"  mode {i}: logical_product({mi}, {bi}) = {ri}")
+
+        lines.append("")
+        actual = logical_product(A, B)
+        lines.append(f"  result = {actual}")
+
+    elif name == "complement":
         L = args[0]
         bound = args[1] if len(args) > 1 else None
         if bound is not None:
-            lines.append(f'complement({L}, {bound})')
+            lines.append(f"complement({L}, {bound})")
         else:
-            lines.append(f'complement({L})')
+            lines.append(f"complement({L})")
             bound = cosize(L)
-        lines.append(f'  Fills the gaps in L\'s codomain up to bound={bound}.')
-        lines.append(f'')
-        lines.append(f'  L = {L}')
-        lines.append(f'  image(L) = {image(L)}')
-        lines.append(f'  codomain = [0, {bound})')
+        lines.append(f"  Fills the gaps in L's codomain up to bound={bound}.")
+        lines.append("")
+        lines.append(f"  L = {L}")
+        lines.append(f"  image(L) = {image(L)}")
+        lines.append(f"  codomain = [0, {bound})")
         comp = complement(*args)
-        lines.append(f'  complement = {comp}')
-        lines.append(f'  image(complement) = {image(comp)}')
+        lines.append(f"  complement = {comp}")
+        lines.append(f"  image(complement) = {image(comp)}")
 
-    elif name == 'compose':
+    elif name == "compose":
         A, B = args
-        lines.append(f'compose({A}, {B})')
-        lines.append(f'  C(i) = A(B(i))')
-        lines.append(f'')
-        lines.append(f'  A = {A}')
-        lines.append(f'  B = {B}')
+        lines.append(f"compose({A}, {B})")
+        lines.append("  C(i) = A(B(i))")
+        lines.append("")
+        lines.append(f"  A = {A}")
+        lines.append(f"  B = {B}")
         result = compose(A, B)
-        lines.append(f'  result = {result}')
-        lines.append(f'')
+        lines.append(f"  result = {result}")
+        lines.append("")
         n = min(size(result), 8)
-        lines.append(f'  First {n} values:')
+        lines.append(f"  First {n} values:")
         for i in range(n):
-            lines.append(f'    i={i}: B({i})={B(i)}, A({B(i)})={result(i)}')
+            lines.append(f"    i={i}: B({i})={B(i)}, A({B(i)})={result(i)}")
 
-    elif name == 'right_inverse':
+    elif name == "right_inverse":
         L = args[0]
-        lines.append(f'right_inverse({L})')
-        lines.append(f'  R such that L(R(i)) == i')
-        lines.append(f'')
+        lines.append(f"right_inverse({L})")
+        lines.append("  R such that L(R(i)) == i")
+        lines.append("")
         R = right_inverse(L)
-        lines.append(f'  L = {L}')
-        lines.append(f'  R = {R}')
+        lines.append(f"  L = {L}")
+        lines.append(f"  R = {R}")
         n = min(size(R), 8)
-        lines.append(f'')
-        lines.append(f'  Verification (first {n}):')
+        lines.append("")
+        lines.append(f"  Verification (first {n}):")
         for i in range(n):
-            lines.append(f'    R({i})={R(i)}, L(R({i}))={L(R(i))}')
+            lines.append(f"    R({i})={R(i)}, L(R({i}))={L(R(i))}")
 
-    elif name == 'left_inverse':
+    elif name == "left_inverse":
         L = args[0]
-        lines.append(f'left_inverse({L})')
-        lines.append(f'  R such that R(L(i)) == i')
-        lines.append(f'')
+        lines.append(f"left_inverse({L})")
+        lines.append("  R such that R(L(i)) == i")
+        lines.append("")
         R = left_inverse(L)
-        lines.append(f'  L = {L}')
-        lines.append(f'  R = {R}')
+        lines.append(f"  L = {L}")
+        lines.append(f"  R = {R}")
         n = min(size(L), 8)
-        lines.append(f'')
-        lines.append(f'  Verification (first {n}):')
+        lines.append("")
+        lines.append(f"  Verification (first {n}):")
         for i in range(n):
-            lines.append(f'    L({i})={L(i)}, R(L({i}))={R(L(i))}')
+            lines.append(f"    L({i})={L(i)}, R(L({i}))={R(L(i))}")
 
-    elif name == 'blocked_product':
+    elif name == "blocked_product":
         A, B = args
-        lines.append(f'blocked_product({A}, {B})')
-        lines.append(f'  Like logical_product, but interleaves corresponding modes:')
-        lines.append(f'  ((A0, B0), (A1, B1), ...) — A varies fastest (block-first).')
-        lines.append(f'')
+        lines.append(f"blocked_product({A}, {B})")
+        lines.append("  Like logical_product, but interleaves corresponding modes:")
+        lines.append("  ((A0, B0), (A1, B1), ...) — A varies fastest (block-first).")
+        lines.append("")
         lp = logical_product(A, B)
-        lines.append(f'  logical_product(A, B) = {lp}')
+        lines.append(f"  logical_product(A, B) = {lp}")
         actual = blocked_product(A, B)
-        lines.append(f'  blocked_product(A, B) = {actual}')
-        lines.append(f'')
-        lines.append(f'  Mode structure:')
+        lines.append(f"  blocked_product(A, B) = {actual}")
+        lines.append("")
+        lines.append("  Mode structure:")
         for i in range(max(1, len(actual.shape) if isinstance(actual.shape, tuple) else 1)):
             m = mode(actual, i) if isinstance(actual.shape, tuple) else actual
-            lines.append(f'    mode {i}: {m.shape} : {m.stride}')
+            lines.append(f"    mode {i}: {m.shape} : {m.stride}")
 
-    elif name == 'raked_product':
+    elif name == "raked_product":
         A, B = args
-        lines.append(f'raked_product({A}, {B})')
-        lines.append(f'  Like blocked_product, but B varies fastest (rake-first):')
-        lines.append(f'  ((B0, A0), (B1, A1), ...) — elements are interleaved.')
-        lines.append(f'')
+        lines.append(f"raked_product({A}, {B})")
+        lines.append("  Like blocked_product, but B varies fastest (rake-first):")
+        lines.append("  ((B0, A0), (B1, A1), ...) — elements are interleaved.")
+        lines.append("")
         bp = blocked_product(A, B)
-        lines.append(f'  blocked_product(A, B) = {bp}')
+        lines.append(f"  blocked_product(A, B) = {bp}")
         actual = raked_product(A, B)
-        lines.append(f'  raked_product(A, B)   = {actual}')
-        lines.append(f'')
-        lines.append(f'  Compare first 8 offsets:')
+        lines.append(f"  raked_product(A, B)   = {actual}")
+        lines.append("")
+        lines.append("  Compare first 8 offsets:")
         n = min(size(actual), 8)
         bp_vals = [bp(i) for i in range(n)]
         rp_vals = [actual(i) for i in range(n)]
-        lines.append(f'    blocked: {bp_vals}')
-        lines.append(f'    raked:   {rp_vals}')
+        lines.append(f"    blocked: {bp_vals}")
+        lines.append(f"    raked:   {rp_vals}")
 
-    elif name in ('zipped_divide', 'tiled_divide', 'flat_divide'):
+    elif name in ("zipped_divide", "tiled_divide", "flat_divide"):
         L, T = args
-        lines.append(f'{name}({L}, {T})')
-        lines.append(f'  Rearrangement of logical_divide result.')
-        lines.append(f'')
+        lines.append(f"{name}({L}, {T})")
+        lines.append("  Rearrangement of logical_divide result.")
+        lines.append("")
         ld = logical_divide(L, T)
-        lines.append(f'  logical_divide({L}, {T})')
-        lines.append(f'    = {ld}')
+        lines.append(f"  logical_divide({L}, {T})")
+        lines.append(f"    = {ld}")
         actual = fn(L, T)
-        lines.append(f'  {name}:')
-        lines.append(f'    = {actual}')
-        lines.append(f'')
-        if name == 'zipped_divide':
-            lines.append(f'  Structure: ((tiles), (rests))')
-        elif name == 'tiled_divide':
-            lines.append(f'  Structure: ((tiles), rest0, rest1, ...)')
+        lines.append(f"  {name}:")
+        lines.append(f"    = {actual}")
+        lines.append("")
+        if name == "zipped_divide":
+            lines.append("  Structure: ((tiles), (rests))")
+        elif name == "tiled_divide":
+            lines.append("  Structure: ((tiles), rest0, rest1, ...)")
         else:
-            lines.append(f'  Structure: (tile0, tile1, ..., rest0, rest1, ...)')
+            lines.append("  Structure: (tile0, tile1, ..., rest0, rest1, ...)")
 
     else:
-        lines.append(f'explain() does not support {name}.')
-        lines.append(f'Supported: logical_divide, logical_product, complement,')
-        lines.append(f'           compose, right_inverse, left_inverse,')
-        lines.append(f'           blocked_product, raked_product,')
-        lines.append(f'           zipped_divide, tiled_divide, flat_divide.')
+        lines.append(f"explain() does not support {name}.")
+        lines.append("Supported: logical_divide, logical_product, complement,")
+        lines.append("           compose, right_inverse, left_inverse,")
+        lines.append("           blocked_product, raked_product,")
+        lines.append("           zipped_divide, tiled_divide, flat_divide.")
 
-    text = '\n'.join(lines)
+    text = "\n".join(lines)
     print(text)
     return text

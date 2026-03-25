@@ -35,13 +35,14 @@ See also:
     viz.ipynb    — Jupyter notebook gallery
 """
 
-from tensor_layouts import *
-from tensor_layouts.analysis import *
+from tensor_layouts import * # noqa: F401,F403,F405
+from tensor_layouts.analysis import * # noqa: F401,F403,F405
 
 
 # =============================================================================
 # Section 1: Layout Construction
 # =============================================================================
+
 
 def example_construction():
     """Building layouts from shape and stride.
@@ -91,6 +92,7 @@ def example_construction():
 # Section 2: Querying Layouts
 # =============================================================================
 
+
 def example_querying():
     """Query functions for shape, size, rank, and depth.
 
@@ -106,10 +108,10 @@ def example_querying():
     print(f"  Layout: {layout}")
     print(f"  shape:  {layout.shape}")
     print(f"  stride: {layout.stride}")
-    print(f"  size:   {size(layout)}")       # Total number of elements
-    print(f"  cosize: {cosize(layout)}")     # Span: max offset + 1
-    print(f"  rank:   {rank(layout)}")       # Number of top-level modes
-    print(f"  depth:  {depth(layout)}")      # Maximum nesting depth
+    print(f"  size:   {size(layout)}")  # Total number of elements
+    print(f"  cosize: {cosize(layout)}")  # Span: max offset + 1
+    print(f"  rank:   {rank(layout)}")  # Number of top-level modes
+    print(f"  depth:  {depth(layout)}")  # Maximum nesting depth
 
     # mode() extracts a single mode as a Layout
     print(f"  mode 0: {mode(layout, 0)}")
@@ -125,6 +127,7 @@ def example_querying():
 # Section 3: Coordinate Mapping
 # =============================================================================
 
+
 def example_coordinate_mapping():
     """Calling a layout to map coordinates to memory offsets.
 
@@ -139,17 +142,17 @@ def example_coordinate_mapping():
     print(f"  Layout: {layout}")
 
     # Multi-dimensional coordinates
-    print(f"  (0, 0) -> {layout(0, 0)}")   # 0
-    print(f"  (2, 3) -> {layout(2, 3)}")   # 2 + 12 = 14
-    print(f"  (3, 7) -> {layout(3, 7)}")   # 3 + 28 = 31
+    print(f"  (0, 0) -> {layout(0, 0)}")  # 0
+    print(f"  (2, 3) -> {layout(2, 3)}")  # 2 + 12 = 14
+    print(f"  (3, 7) -> {layout(3, 7)}")  # 3 + 28 = 31
 
     # Flat index: column-major traversal of the domain
-    print(f"  flat 0 -> {layout(0)}")       # Same as (0,0) -> 0
-    print(f"  flat 5 -> {layout(5)}")       # Same as (1,1) -> 5
-    print(f"  flat 31 -> {layout(31)}")     # Same as (3,7) -> 31
+    print(f"  flat 0 -> {layout(0)}")  # Same as (0,0) -> 0
+    print(f"  flat 5 -> {layout(5)}")  # Same as (1,1) -> 5
+    print(f"  flat 31 -> {layout(31)}")  # Same as (3,7) -> 31
 
     # idx2crd: convert flat index to multi-dimensional coordinate
-    print(f"\n  idx2crd(5, (4, 8)):  {idx2crd(5, (4, 8))}")   # (1, 1)
+    print(f"\n  idx2crd(5, (4, 8)):  {idx2crd(5, (4, 8))}")  # (1, 1)
     print(f"  idx2crd(14, (4, 8)): {idx2crd(14, (4, 8))}")  # (2, 3)
 
     # crd2flat: convert coordinate to flat index
@@ -159,6 +162,7 @@ def example_coordinate_mapping():
 # =============================================================================
 # Section 4: Tuple Arithmetic
 # =============================================================================
+
 
 def example_tuple_arithmetic():
     """Arithmetic on nested tuples — the foundation of layout algebra.
@@ -174,12 +178,12 @@ def example_tuple_arithmetic():
     # column-major strides from a shape
     shape = (2, 3, 4)
     pp = prefix_product(shape)
-    print(f"  prefix_product({shape}): {pp}")   # (1, 2, 6)
+    print(f"  prefix_product({shape}): {pp}")  # (1, 2, 6)
     # This is exactly the column-major stride for shape (2,3,4)
 
     # suffix_product: running product from the right
     sp = suffix_product(shape)
-    print(f"  suffix_product({shape}): {sp}")   # (12, 4, 1)
+    print(f"  suffix_product({shape}): {sp}")  # (12, 4, 1)
     # This is exactly the row-major stride for shape (2,3,4)
 
     # inner_product: sum of element-wise products
@@ -199,6 +203,7 @@ def example_tuple_arithmetic():
 # =============================================================================
 # Section 5: Layout Manipulation
 # =============================================================================
+
 
 def example_manipulation():
     """Reshape and reorganize layouts without changing the mapping.
@@ -243,6 +248,7 @@ def example_manipulation():
 # =============================================================================
 # Section 6: Composition
 # =============================================================================
+
 
 def example_composition():
     """compose(A, B) — function composition: C(i) = A(B(i)).
@@ -289,6 +295,7 @@ def example_composition():
 # Section 7: Complement
 # =============================================================================
 
+
 def example_complement():
     """complement(L) — the layout that fills in L's gaps.
 
@@ -332,6 +339,7 @@ def example_complement():
 # =============================================================================
 # Section 8: Division
 # =============================================================================
+
 
 def example_division():
     """logical_divide — split a layout into (tile, rest).
@@ -382,6 +390,7 @@ def example_division():
 # Section 9: Product
 # =============================================================================
 
+
 def example_product():
     """logical_product — replicate A's pattern across B's domain.
 
@@ -422,6 +431,7 @@ def example_product():
 # Section 10: Inverse
 # =============================================================================
 
+
 def example_inverse():
     """right_inverse, left_inverse — undo a layout's mapping.
 
@@ -460,6 +470,7 @@ def example_inverse():
 # =============================================================================
 # Section 11: Swizzle
 # =============================================================================
+
 
 def example_swizzle():
     """Swizzle(bits, base, shift) — XOR-based bank conflict avoidance.
@@ -503,6 +514,7 @@ def example_swizzle():
 # =============================================================================
 # Section 12: Tensor
 # =============================================================================
+
 
 def example_tensor():
     """Tensor — a Layout combined with a base offset.
@@ -548,6 +560,7 @@ def example_tensor():
 # Section 13: Tile
 # =============================================================================
 
+
 def example_tile():
     """Tile — a tuple of Layouts for mode-by-mode composition.
 
@@ -585,6 +598,7 @@ def example_tile():
 # =============================================================================
 # Section 14: Iteration
 # =============================================================================
+
 
 def example_iteration():
     """Iterating over layouts.
@@ -627,6 +641,7 @@ def example_iteration():
 # Section 15: Image and Injectivity
 # =============================================================================
 
+
 def example_image_injectivity():
     """Analyzing a layout as a function.
 
@@ -668,6 +683,7 @@ def example_image_injectivity():
 # Section 16: Functional Equivalence
 # =============================================================================
 
+
 def example_functional_equivalence():
     """Checking if two layouts compute the same mapping.
 
@@ -704,6 +720,7 @@ def example_functional_equivalence():
 # Section 17: GPU Analysis
 # =============================================================================
 
+
 def example_analysis():
     """Analyzing layouts for GPU performance.
 
@@ -735,7 +752,9 @@ def example_analysis():
     result = bank_conflicts(col_access, element_bytes=4)
     print(f"  Column access (stride 8): {col_access}")
     print(f"    conflict_free: {result['conflict_free']}")
-    print(f"    max_ways: {result['max_ways']} (threads serialize {result['max_ways']}x)")
+    print(
+        f"    max_ways: {result['max_ways']} (threads serialize {result['max_ways']}x)"
+    )
 
     # --- Swizzle fix ---
     sw_tile = compose(Swizzle(3, 0, 3), tile)
@@ -759,13 +778,17 @@ def example_analysis():
     print("  " + "-" * 40)
     coalesced = Layout(32, 1)
     r1 = coalescing_efficiency(coalesced, element_bytes=4)
-    print(f"  Stride-1 (fp32): {r1['transactions']} transaction, "
-          f"efficiency {r1['efficiency']:.0%}")
+    print(
+        f"  Stride-1 (fp32): {r1['transactions']} transaction, "
+        f"efficiency {r1['efficiency']:.0%}"
+    )
 
     scattered = Layout(32, 64)
-    r2 = coalescing_efficiency(scattered)
-    print(f"  Stride-64 (fp16): {r2['transactions']} transactions, "
-          f"efficiency {r2['efficiency']:.1%}")
+    r2 = coalescing_efficiency(scattered, element_bytes=2)
+    print(
+        f"  Stride-64 (fp16): {r2['transactions']} transactions, "
+        f"efficiency {r2['efficiency']:.1%}"
+    )
 
     # --- Permutation structure ---
     print(f"\n  Permutation Structure")
@@ -792,11 +815,11 @@ def example_analysis():
     print("  " + "-" * 40)
 
     layouts = [
-        ("Contiguous 1D",        Layout(8, 1)),
-        ("Strided 1D",           Layout(8, 2)),
-        ("Col-major 4x8",       Layout((4, 8), (1, 4))),
-        ("Gapped 4x8",          Layout((4, 8), (1, 8))),
-        ("Row-major 4x8",       Layout((4, 8), (8, 1))),
+        ("Contiguous 1D", Layout(8, 1)),
+        ("Strided 1D", Layout(8, 2)),
+        ("Col-major 4x8", Layout((4, 8), (1, 4))),
+        ("Gapped 4x8", Layout((4, 8), (1, 8))),
+        ("Row-major 4x8", Layout((4, 8), (8, 1))),
     ]
     for label, l in layouts:
         print(f"  {label:20s} {str(l):25s} contiguity={contiguity(l)}")
@@ -817,6 +840,7 @@ def example_analysis():
 # =============================================================================
 # Main
 # =============================================================================
+
 
 def main():
     """Run all layout algebra examples."""

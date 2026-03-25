@@ -1,3 +1,27 @@
+<!--
+MIT License
+
+Copyright (c) 2026 Meta Platforms, Inc. and affiliates.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+-->
+
 # Visualization API
 
 This document covers the `tensor_layouts.viz` module for drawing layouts,
@@ -257,6 +281,12 @@ layout = Layout(((3, 2), ((2, 3), 2)), ((4, 1), ((2, 15), 100)))
 draw_slice(layout, ((1, None), ((None, 0), None)), title="((1,:),((:,0),:))")
 ```
 
+For 1D layouts, wrap the slice in a single-element tuple:
+
+```python
+draw_slice(Layout(8, 1), (slice(2, 5),), title="1D slice [2:5]")
+```
+
 ![draw_slice](images/draw_slice.png)
 
 **Parameters:**
@@ -302,6 +332,13 @@ draw_composite(panels, "comparison.png",
 | `panel_size` | `(w, h)` | `(4, 4)` | Size per panel |
 | `colorize` | `bool` | `False` | Rainbow colors |
 | `tv_mode` | `bool` | `False` | Use TV-layout rendering |
+| `flatten_hierarchical` | `bool` | `True` | Flatten nested shapes to 2D grid |
+| `label_hierarchy_levels` | `bool` | `False` | In nested hierarchical mode, annotate hierarchy levels |
+
+Per-panel options (`(Layout, opts_dict)` tuples) override the top-level
+defaults: `colorize`, `color_layout`, `num_colors`, `tv_mode`,
+`flatten_hierarchical`, `label_hierarchy_levels`, and the TV-specific
+`grid_rows`, `grid_cols`, `thr_id_layout`, `col_major`.
 
 ## draw_tiled_grid
 
